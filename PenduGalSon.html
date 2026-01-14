@@ -1,0 +1,672 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  Play, 
+  Pause,
+  RefreshCcw, 
+  Settings, 
+  Volume2, 
+  VolumeX, 
+  Music, 
+  Zap,
+  Move
+} from 'lucide-react';
+
+const App = () => {
+  // --- Estado de la Interfaz ---
+  const [gravity, setGravity] = useState(9.8);
+  const [mass1, setMass1] = useState(15);
+  const [mass2, setMass2] = useState(15);
+  const [trailLength, setTrailLength] = useState(200); 
+  const [mode, setMode] = useState('simple'); 
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [showControls, setShowControls] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  const [cursorStyle, setCursorStyle] = useState('cursor-default');
+
+  // --- Referencias ---
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null); 
+  const audioCtxRef = useRef(null);
+  const nodesRef = useRef(null); 
+  const requestRef = useRef();
+  const lastMouseRef = useRef({ x: 0, y: 0 }); 
+  
+  const engine = useRef({
+    pivot: null,       
+    p1: { a: Math.PI/4, v: 0, l: 200, x: 0, y: 0 }, 
+    p2: { a: Math.PI/4, v: 0, l: 0, x: 0, y: 0 }, 
+    isDragging: false,
+    dragTarget: null,  
+    dragStep: 0,       
+    history: [],
+    lastMouse: { x: 0, y: 0 },
+    lastPinchDist: 0,
+    view: { x: 0, y: 0, scale: 1 },
+    dpr: 1
+  });
+
+  useEffect(() => {
+    engine.current.view = view;
+  }, [view]);
+
+  // --- Función de Reinicio ---
+  const resetSimulation = useCallback(() => {
+    setIsSimulating(false);
+    const s = engine.current;
+    s.pivot = null;
+    s.history = [];
+    s.p1 = { a: Math.PI/4, v: 0, l: 200, x: 0, y: 0 };
+    s.p2 = { a: Math.PI/4, v: 0, l: 0, x: 0, y: 0 };
+    s.dragStep = 0;
+    s.isDragging = false;
+    s.dragTarget = null;
+    setView({ x: 0, y: 0, scale: 1 });
+    
+    if (nodesRef.current && audioCtxRef.current) {
+      const now = audioCtxRef.current.currentTime;
+      nodesRef.current.bass.gain.gain.setTargetAtTime(0, now, 0.05);
+      nodesRef.current.lead.gain.gain.setTargetAtTime(0, now, 0.05);
+      nodesRef.current.leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.05);
+    }
+  }, []);
+
+  // --- Audio Engine ---
+  const initAudio = async () => {
+    if (audioCtxRef.current) {
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+      return;
+    }
+
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      
+      const createOsc = (type, volume = 0.1) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        gain.gain.value = 0;
+        osc.connect(gain);
+        osc.start();
+        return { osc, gain, baseVol: volume };
+      };
+
+      const bass = createOsc('triangle', 0.4);
+      const lead = createOsc('sine', 0.25);
+      const leadHarmonic = createOsc('triangle', 0.1);
+      
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1400;
+
+      const delay = ctx.createDelay(1.0);
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.35;
+
+      const master = ctx.createGain();
+      master.gain.value = 0.8;
+
+      bass.gain.connect(filter);
+      lead.gain.connect(filter);
+      leadHarmonic.gain.connect(filter);
+      
+      filter.connect(master);
+      master.connect(ctx.destination);
+      
+      master.connect(delay);
+      delay.connect(feedback);
+      feedback.connect(delay);
+      delay.connect(ctx.destination);
+
+      audioCtxRef.current = ctx;
+      nodesRef.current = { bass, lead, leadHarmonic, delay, master, ctx };
+      setIsMuted(false);
+      
+      if (ctx.state === 'suspended') await ctx.resume();
+    } catch (e) {
+      console.error("Audio error", e);
+    }
+  };
+
+  const updateAudio = useCallback(() => {
+    if (!nodesRef.current || isMuted || !isSimulating) {
+      if (nodesRef.current) {
+        const now = audioCtxRef.current.currentTime;
+        nodesRef.current.bass.gain.gain.setTargetAtTime(0, now, 0.1);
+        nodesRef.current.lead.gain.gain.setTargetAtTime(0, now, 0.1);
+        nodesRef.current.leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.1);
+      }
+      return;
+    }
+
+    const { bass, lead, leadHarmonic, delay, ctx } = nodesRef.current;
+    const { p1, p2, pivot } = engine.current;
+    if (!pivot || !p1 || !p2) return;
+    const now = ctx.currentTime;
+    
+    const safeP1X = Number.isFinite(p1.x) ? p1.x : 0;
+    const safeP1Y = Number.isFinite(p1.y) ? p1.y : 0;
+    const safeP2X = Number.isFinite(p2.x) ? p2.x : 0;
+    const safeP2Y = Number.isFinite(p2.y) ? p2.y : 0;
+    const safePivotX = Number.isFinite(pivot.x) ? pivot.x : 0;
+    const safePivotY = Number.isFinite(pivot.y) ? pivot.y : 0;
+
+    const dx1 = Math.max(-2, Math.min(2, (safeP1X - safePivotX) / 400));
+    const dy1 = Math.max(0, Math.min(1, 1 - (safeP1Y - safePivotY + 300) / 600));
+    const dx2 = Math.max(-2, Math.min(2, (safeP2X - safePivotX) / 400));
+    const dy2 = Math.max(0, Math.min(1, 1 - (safeP2Y - safePivotY + 300) / 600));
+
+    const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 2);
+    if (Number.isFinite(freqBass)) {
+      bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
+    }
+    bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol, now, 0.1);
+    
+    const dTime = Math.max(0, Math.min(0.9, Math.abs(dx1) * 0.5));
+    delay.delayTime.setTargetAtTime(dTime, now, 0.1);
+
+    const freqLead = 261.6 * Math.pow(2, (dx2 + 1) * 3);
+    if (Number.isFinite(freqLead)) {
+      lead.osc.frequency.setTargetAtTime(freqLead, now, 0.05);
+      leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05); 
+    }
+    
+    const volL = dy2 * lead.baseVol;
+    lead.gain.gain.setTargetAtTime(volL, now, 0.1);
+    leadHarmonic.gain.gain.setTargetAtTime(volL * 0.4, now, 0.1);
+
+  }, [isMuted, isSimulating]);
+
+  // --- Utilidades Geométricas ---
+  const getScreenPos = (e) => {
+    if (!e.touches && e.nativeEvent) {
+      return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
+    }
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
+  const toWorld = (screenX, screenY) => {
+    const { x, y, scale } = engine.current.view;
+    return { x: (screenX - x) / scale, y: (screenY - y) / scale };
+  };
+
+  const getDist = (a, b) => Math.sqrt((a.x - b.x)**2 + (a.y - b.y)**2);
+
+  const findTarget = (worldPos, hitRadius) => {
+    const s = engine.current;
+    if (!s.pivot) return null;
+
+    const candidates = [
+      { id: 'pivot', pos: s.pivot, dist: getDist(worldPos, s.pivot) },
+      { id: 'p1', pos: s.p1, dist: getDist(worldPos, s.p1) },
+    ];
+
+    if (mode === 'compound' && s.p2.l > 0) {
+      candidates.push({ id: 'p2', pos: s.p2, dist: getDist(worldPos, s.p2) });
+    }
+
+    const matches = candidates
+      .filter(c => c.dist <= hitRadius)
+      .sort((a, b) => a.dist - b.dist);
+
+    if (matches.length > 0) return matches[0].id;
+    return null;
+  };
+
+  // --- Event Handlers ---
+  const onStart = async (e) => {
+    if (e.cancelable) e.preventDefault();
+    const s = engine.current;
+    
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+
+    if (e.touches && e.touches.length === 2) {
+      s.dragTarget = 'zoom';
+      s.lastPinchDist = getDist(
+        { x: e.touches[0].clientX, y: e.touches[0].clientY },
+        { x: e.touches[1].clientX, y: e.touches[1].clientY }
+      );
+      return;
+    }
+
+    const screenPos = getScreenPos(e);
+    const worldPos = toWorld(screenPos.x, screenPos.y);
+    const hitRadius = 50 / view.scale;
+
+    if (s.pivot) {
+      const target = findTarget(worldPos, hitRadius);
+      if (target) {
+        if (target === 'create_p2') {
+          s.dragTarget = 'p2';
+          s.dragStep = 2;
+        } else {
+          s.dragTarget = target;
+        }
+        s.isDragging = true;
+        s.history = [];
+        return;
+      }
+    }
+
+    if (!s.pivot) {
+      s.pivot = worldPos;
+      s.dragStep = 1;
+      s.dragTarget = 'p1';
+      s.isDragging = true;
+      s.history = [];
+      setIsSimulating(false);
+      setShowInstructions(false);
+    } else {
+      s.dragTarget = 'pan';
+      s.isDragging = true;
+      s.lastMouse = { x: screenPos.x, y: screenPos.y };
+      setCursorStyle('cursor-grabbing');
+    }
+  };
+
+  const onMove = (e) => {
+    const s = engine.current;
+    const screenPos = getScreenPos(e);
+    const worldPos = toWorld(screenPos.x, screenPos.y);
+
+    if (!s.isDragging) {
+      const hitRadius = 50 / view.scale;
+      if (s.pivot) {
+        const target = findTarget(worldPos, hitRadius);
+        setCursorStyle(target ? 'cursor-grab' : 'cursor-default');
+      } else {
+        setCursorStyle('cursor-crosshair');
+      }
+      return;
+    }
+
+    if (s.dragTarget === 'zoom' && e.touches?.length === 2) {
+      const d = getDist(
+        { x: e.touches[0].clientX, y: e.touches[0].clientY },
+        { x: e.touches[1].clientX, y: e.touches[1].clientY }
+      );
+      const ratio = d / s.lastPinchDist;
+      setView(v => ({ ...v, scale: Math.max(0.2, Math.min(4, v.scale * ratio)) }));
+      s.lastPinchDist = d;
+      return;
+    }
+
+    if (s.dragTarget === 'pan') {
+      const dx = screenPos.x - s.lastMouse.x;
+      const dy = screenPos.y - s.lastMouse.y;
+      setView(v => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      s.lastMouse = { x: screenPos.x, y: screenPos.y };
+      return;
+    } 
+    
+    if (s.dragTarget === 'pivot') {
+      s.pivot = worldPos;
+    } else if (s.dragTarget === 'p1') {
+      const dx = worldPos.x - s.pivot.x;
+      const dy = worldPos.y - s.pivot.y;
+      s.p1.l = Math.max(20, Math.sqrt(dx*dx + dy*dy));
+      s.p1.a = Math.atan2(dx, dy);
+      s.p1.v = 0;
+    } else if (s.dragTarget === 'p2') {
+      const dx = worldPos.x - s.p1.x;
+      const dy = worldPos.y - s.p1.y;
+      s.p2.l = Math.max(10, Math.sqrt(dx*dx + dy*dy));
+      s.p2.a = Math.atan2(dx, dy);
+      s.p2.v = 0;
+    }
+
+    s.p1.x = s.pivot.x + s.p1.l * Math.sin(s.p1.a);
+    s.p1.y = s.pivot.y + s.p1.l * Math.cos(s.p1.a);
+    s.p2.x = s.p1.x + s.p2.l * Math.sin(s.p2.a);
+    s.p2.y = s.p1.y + s.p2.l * Math.cos(s.p2.a);
+    s.history = [];
+  };
+
+  const onEnd = () => {
+    const s = engine.current;
+    if (!s.isDragging) return;
+
+    if (s.dragTarget === 'p1') {
+      if (mode === 'simple') {
+        if (s.dragStep === 1) setIsSimulating(true);
+        s.dragStep = 2;
+      } else {
+        if (s.dragStep === 1) {
+          s.p2.l = 100; 
+          s.p2.a = s.p1.a; 
+          s.p2.v = 0;
+          s.p2.x = s.p1.x + s.p2.l * Math.sin(s.p2.a);
+          s.p2.y = s.p1.y + s.p2.l * Math.cos(s.p2.a);
+          s.dragStep = 2;
+          setIsSimulating(true);
+        }
+      }
+    }
+    
+    s.isDragging = false;
+    s.dragTarget = null;
+    setCursorStyle('cursor-grab');
+    if (isMuted && audioCtxRef.current) initAudio();
+  };
+
+  const loop = useCallback(() => {
+    const s = engine.current;
+    
+    if (s.pivot) {
+      if (isSimulating) {
+        const dt = 0.2, g = gravity * 0.15;
+        const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
+
+        if (!isDraggingAny) {
+          if (mode === 'simple') {
+            const accel = -(g / s.p1.l) * Math.sin(s.p1.a);
+            s.p1.v += accel * dt;
+            s.p1.a += s.p1.v * dt;
+            s.p1.v *= 0.998;
+          } else {
+            const m1 = mass1, m2 = mass2, l1 = s.p1.l, l2 = s.p2.l, a1 = s.p1.a, a2 = s.p2.a, v1 = s.p1.v, v2 = s.p2.v;
+            const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
+            if (den !== 0) {
+              const a1_acc = (-g*(2*m1+m2)*Math.sin(a1) - m2*g*Math.sin(a1-2*a2) - 2*Math.sin(a1-a2)*m2*(v2*v2*l2+v1*v1*l1*Math.cos(a1-a2))) / den;
+              const a2_acc = (2*Math.sin(a1-a2)*(v1*v1*l1*(m1+m2) + g*(m1+m2)*Math.cos(a1) + v2*v2*l2*m2*Math.cos(a1-a2))) / (l2 * (2*m1+m2-m2*Math.cos(2*a1-2*a2)));
+              
+              const safeA1Acc = Math.max(-10, Math.min(10, a1_acc));
+              const safeA2Acc = Math.max(-10, Math.min(10, a2_acc));
+              
+              s.p1.v += safeA1Acc * dt; s.p2.v += safeA2Acc * dt;
+              s.p1.a += s.p1.v * dt; s.p2.a += s.p2.v * dt;
+              
+              s.p1.v = Math.max(-2, Math.min(2, s.p1.v));
+              s.p2.v = Math.max(-3, Math.min(3, s.p2.v));
+            }
+          }
+        }
+      }
+      
+      s.p1.x = s.pivot.x + s.p1.l * Math.sin(s.p1.a);
+      s.p1.y = s.pivot.y + s.p1.l * Math.cos(s.p1.a);
+      s.p2.x = s.p1.x + s.p2.l * Math.sin(s.p2.a);
+      s.p2.y = s.p1.y + s.p2.l * Math.cos(s.p2.a);
+
+      if (isSimulating && !s.isDragging) {
+        s.history.push({ x: s.p2.x, y: s.p2.y });
+        if (s.history.length > trailLength) {
+          s.history.splice(0, s.history.length - trailLength);
+        }
+      } else if (!isSimulating && s.history.length > trailLength) {
+        s.history.splice(0, s.history.length - trailLength);
+      }
+
+      updateAudio();
+    }
+
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const { x, y, scale } = view;
+      const dpr = s.dpr || 1;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+
+      if (s.pivot) {
+        // --- ESTELA SUAVE ---
+        if (mode === 'compound' && s.history.length > 1) {
+          ctx.beginPath();
+          // Gradiente para la estela (desvanece al final)
+          const gradient = ctx.createLinearGradient(
+            s.history[0].x, s.history[0].y, 
+            s.history[s.history.length-1].x, s.history[s.history.length-1].y
+          );
+          gradient.addColorStop(0, 'rgba(147, 81, 234, 0)');
+          gradient.addColorStop(1, 'rgba(147, 81, 234, 0.5)');
+          ctx.strokeStyle = gradient;
+          
+          ctx.lineWidth = 3 / scale;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.moveTo(s.history[0].x, s.history[0].y);
+          for (let i = 1; i < s.history.length; i++) {
+            ctx.lineTo(s.history[i].x, s.history[i].y);
+          }
+          ctx.stroke();
+        }
+
+        // --- BRAZOS METÁLICOS ---
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 3 / scale;
+        // Gradiente para la cuerda
+        const stringGrad = ctx.createLinearGradient(s.pivot.x, s.pivot.y, s.p2.x, s.p2.y);
+        stringGrad.addColorStop(0, '#94a3b8');
+        stringGrad.addColorStop(0.5, '#cbd5e1');
+        stringGrad.addColorStop(1, '#94a3b8');
+        ctx.strokeStyle = stringGrad;
+        
+        ctx.beginPath();
+        ctx.moveTo(s.pivot.x, s.pivot.y);
+        ctx.lineTo(s.p1.x, s.p1.y);
+        if (mode === 'compound' && s.p2.l > 0) ctx.lineTo(s.p2.x, s.p2.y);
+        ctx.stroke();
+
+        // --- PIVOTE ARO (Ring Anchor) ---
+        const drawRingAnchor = (p, r, active) => {
+            const rad = r / scale;
+            // Sombra
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
+            
+            // Aro exterior
+            const gradRing = ctx.createRadialGradient(p.x - rad*0.5, p.y - rad*0.5, rad*0.2, p.x, p.y, rad);
+            gradRing.addColorStop(0, '#e2e8f0');
+            gradRing.addColorStop(0.5, '#64748b');
+            gradRing.addColorStop(1, '#1e293b');
+            
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, rad, 0, Math.PI*2, false); // Exterior
+            ctx.arc(p.x, p.y, rad * 0.4, 0, Math.PI*2, true); // Agujero interior
+            ctx.fillStyle = gradRing;
+            ctx.fill();
+            ctx.restore();
+
+            // Aro de selección
+            if (active) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, rad + 5/scale, 0, Math.PI*2);
+                ctx.strokeStyle = 'rgba(30, 58, 138, 0.8)'; // Darker blue selection
+                ctx.lineWidth = 2/scale;
+                ctx.stroke();
+            }
+        };
+
+        // --- MASAS 3D (Metallic Spheres) ---
+        const drawMetallicBall = (p, r, colorHue, id) => {
+          const mousePos = lastMouseRef.current;
+          const mouseWorld = toWorld(mousePos.x, mousePos.y);
+          const dist = getDist(mouseWorld, p);
+          
+          const isHovered = !s.isDragging && dist < (50 / scale);
+          const isDragTarget = s.dragTarget === id;
+          const active = isHovered || isDragTarget;
+
+          const rad = r / scale;
+          
+          // Sombra de la esfera
+          ctx.save();
+          ctx.shadowColor = 'rgba(0,0,0,0.4)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 3;
+          ctx.shadowOffsetY = 3;
+
+          // Gradiente Esférico
+          const grad = ctx.createRadialGradient(p.x - rad*0.3, p.y - rad*0.3, rad*0.1, p.x, p.y, rad);
+          
+          if (colorHue === 'blue') {
+              grad.addColorStop(0, '#bfdbfe'); // Brillo especular
+              grad.addColorStop(0.4, '#3b82f6'); // Color base
+              grad.addColorStop(1, '#172554'); // Sombra propia
+          } else { // Purple
+              grad.addColorStop(0, '#e9d5ff');
+              grad.addColorStop(0.4, '#9333ea');
+              grad.addColorStop(1, '#581c87');
+          }
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+          ctx.restore();
+
+          // Anillo de selección - CAMBIADO A GRIS OSCURO
+          if (active) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, rad + 5/scale, 0, Math.PI*2);
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.6)'; // Gris Pizarra Oscuro
+            ctx.lineWidth = 2/scale;
+            ctx.stroke();
+          }
+        };
+
+        const isPivotActive = s.dragTarget === 'pivot' || (!s.isDragging && findTarget(toWorld(lastMouseRef.current.x, lastMouseRef.current.y), 50/scale) === 'pivot');
+        
+        drawRingAnchor(s.pivot, 12, isPivotActive); // Pivote más grande y con agujero
+        drawMetallicBall(s.p1, 10 + mass1/5, 'blue', 'p1');
+        
+        if (mode === 'compound' && s.p2.l > 0) {
+          drawMetallicBall(s.p2, 10 + mass2/5, 'purple', 'p2');
+        }
+      }
+      ctx.restore();
+    }
+    requestRef.current = requestAnimationFrame(loop);
+  }, [gravity, mass1, mass2, trailLength, mode, isSimulating, updateAudio, view]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (!containerRef.current || !canvasRef.current) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvasRef.current.style.width = `${rect.width}px`;
+      canvasRef.current.style.height = `${rect.height}px`;
+      canvasRef.current.width = rect.width * dpr;
+      canvasRef.current.height = rect.height * dpr;
+      
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.scale(dpr, dpr);
+      engine.current.dpr = dpr;
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
+    
+    window.addEventListener('resize', handleResize);
+    setTimeout(handleResize, 0); 
+    
+    requestRef.current = requestAnimationFrame(loop);
+    return () => { 
+      cancelAnimationFrame(requestRef.current); 
+      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+    };
+  }, [loop]);
+
+  return (
+    <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden">
+      <header className="h-16 bg-white border-b px-6 flex justify-between items-center z-50 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 p-2 rounded-lg"><Music className="text-white w-5 h-5" /></div>
+          <span className="font-bold text-lg">Péndulo Musical</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => { if (!audioCtxRef.current) initAudio(); setIsSimulating(!isSimulating); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all ${isSimulating ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+          >
+            {isSimulating ? <><Pause size={18} fill="currentColor"/> Parar</> : <><Play size={18} fill="currentColor"/> Reproducir</>}
+          </button>
+
+          <button onClick={() => { if(!audioCtxRef.current) initAudio(); setIsMuted(!isMuted); }} className={`p-2 rounded-full transition-colors ${isMuted ? 'text-red-500 bg-red-50' : 'text-blue-600 bg-blue-50'}`}>
+            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+          <button onClick={resetSimulation} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"><RefreshCcw size={20} /></button>
+          <button onClick={() => setShowControls(!showControls)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full md:hidden"><Settings size={20} /></button>
+        </div>
+      </header>
+
+      <div className="flex-1 relative flex overflow-hidden">
+        {/* Wrapper del Canvas con referencia para ResizeObserver */}
+        <div className="flex-1 relative bg-slate-50" ref={containerRef}>
+          <canvas 
+            ref={canvasRef} 
+            onMouseDown={onStart} onMouseMove={(e) => { lastMouseRef.current = getScreenPos(e); onMove(e); }} onMouseUp={onEnd} 
+            onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} 
+            className={`absolute inset-0 w-full h-full touch-none ${cursorStyle}`}
+          />
+          
+          {showInstructions && (
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+              <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+                <h3 className="text-2xl font-black mb-2">Composición Gravitatoria</h3>
+                <p className="text-sm text-slate-500 mb-8 leading-relaxed">Arrastra no lenzo para crear. Preme 'Parar' para editar calquera parte do péndulo sen que se mova.</p>
+                <button onClick={() => { initAudio(); setShowInstructions(false); }} className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-transform shadow-lg shadow-blue-200">Comezar</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <aside className={`absolute md:static right-0 top-0 bottom-0 w-72 bg-white border-l p-6 z-40 transition-transform duration-300 ${showControls ? 'translate-x-0 shadow-xl' : 'translate-x-full md:translate-x-0'}`}>
+          <div className="space-y-8">
+            <section>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Física</label>
+              <div className="flex p-1 bg-slate-100 rounded-xl">
+                <button onClick={() => { setMode('simple'); resetSimulation(); }} className={`flex-1 py-2 text-sm font-bold rounded-lg ${mode === 'simple' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>Simple</button>
+                <button onClick={() => { setMode('compound'); resetSimulation(); }} className={`flex-1 py-2 text-sm font-bold rounded-lg ${mode === 'compound' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}>Dobre</button>
+              </div>
+            </section>
+            <section className="space-y-6">
+              <div className="space-y-2"><div className="flex justify-between text-xs font-bold"><span>Gravidade</span><span>{gravity}</span></div>
+                <input type="range" min="0" max="25" step="0.5" value={gravity} onChange={e => setGravity(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-blue-600 cursor-pointer" />
+              </div>
+              <div className="space-y-2"><div className="flex justify-between text-xs font-bold"><span>Masa Azul</span><span>{mass1}</span></div>
+                <input type="range" min="5" max="100" value={mass1} onChange={e => setMass1(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-blue-600 cursor-pointer" />
+              </div>
+              {mode === 'compound' && (
+                <>
+                  <div className="space-y-2"><div className="flex justify-between text-xs font-bold"><span>Masa Púrpura</span><span>{mass2}</span></div>
+                    <input type="range" min="5" max="100" value={mass2} onChange={e => setMass2(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-purple-600 cursor-pointer" />
+                  </div>
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex justify-between text-xs font-bold"><span>Duración do Rastro</span><span>{trailLength}</span></div>
+                    <input type="range" min="0" max="1000" step="10" value={trailLength} onChange={e => setTrailLength(Number(e.target.value))} className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-slate-400 cursor-pointer" />
+                  </div>
+                </>
+              )}
+            </section>
+
+            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-[11px] text-amber-800 leading-relaxed shadow-sm">
+              <p className="font-bold flex items-center gap-1 mb-1"><Zap size={14}/> Visualización</p>
+              Usa o novo control deslizante de rastro para ver traxectorias máis curtas ou máis longas no modo dobre.
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+};
+
+export default App;
