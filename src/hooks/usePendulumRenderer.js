@@ -11,11 +11,11 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
     // Aro exterior
     const gradRing = ctx.createRadialGradient(
-      p.x - rad*0.5, 
-      p.y - rad*0.5, 
-      rad*0.2, 
-      p.x, 
-      p.y, 
+      p.x - rad * 0.5,
+      p.y - rad * 0.5,
+      rad * 0.2,
+      p.x,
+      p.y,
       rad
     );
     gradRing.addColorStop(0, '#e2e8f0');
@@ -23,8 +23,8 @@ export const usePendulumRenderer = (canvasRef, view) => {
     gradRing.addColorStop(1, '#1e293b');
 
     ctx.beginPath();
-    ctx.arc(p.x, p.y, rad, 0, Math.PI*2, false); // Exterior
-    ctx.arc(p.x, p.y, rad * 0.4, 0, Math.PI*2, true); // Agujero interior
+    ctx.arc(p.x, p.y, rad, 0, Math.PI * 2, false); // Exterior
+    ctx.arc(p.x, p.y, rad * 0.4, 0, Math.PI * 2, true); // Agujero interior
     ctx.fillStyle = gradRing;
     ctx.fill();
     ctx.restore();
@@ -32,9 +32,9 @@ export const usePendulumRenderer = (canvasRef, view) => {
     // Aro de selección
     if (active) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, rad + 5/scale, 0, Math.PI*2);
+      ctx.arc(p.x, p.y, rad + 5 / scale, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(30, 58, 138, 0.8)'; // Darker blue selection
-      ctx.lineWidth = 2/scale;
+      ctx.lineWidth = 2 / scale;
       ctx.stroke();
     }
   }, []);
@@ -51,11 +51,11 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
     // Gradiente Esférico
     const grad = ctx.createRadialGradient(
-      p.x - rad*0.3, 
-      p.y - rad*0.3, 
-      rad*0.1, 
-      p.x, 
-      p.y, 
+      p.x - rad * 0.3,
+      p.y - rad * 0.3,
+      rad * 0.1,
+      p.x,
+      p.y,
       rad
     );
 
@@ -70,7 +70,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
     }
 
     ctx.beginPath();
-    ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
     ctx.fillStyle = grad;
     ctx.fill();
     ctx.restore();
@@ -78,9 +78,9 @@ export const usePendulumRenderer = (canvasRef, view) => {
     // Anillo de selección - CAMBIADO A GRIS OSCURO
     if (active) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, rad + 5/scale, 0, Math.PI*2);
+      ctx.arc(p.x, p.y, rad + 5 / scale, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(15, 23, 42, 0.6)'; // Gris Pizarra Oscuro
-      ctx.lineWidth = 2/scale;
+      ctx.lineWidth = 2 / scale;
       ctx.stroke();
     }
   }, []);
@@ -90,7 +90,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const { x, y, scale } = view;
+    const { x, y, scale } = view.current;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -105,7 +105,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
         // Gradiente para la estela (desvanece al final)
         const gradient = ctx.createLinearGradient(
           state.history[0].x, state.history[0].y,
-          state.history[state.history.length-1].x, state.history[state.history.length-1].y
+          state.history[state.history.length - 1].x, state.history[state.history.length - 1].y
         );
         gradient.addColorStop(0, 'rgba(147, 81, 234, 0)');
         gradient.addColorStop(1, 'rgba(147, 81, 234, 0.5)');
@@ -150,11 +150,11 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
       // MASAS 3D (Metallic Spheres)
       const isP1Active = state.dragTarget === 'p1';
-      drawMetallicBall(ctx, state.pendulum1, 10 + state.mass1/5, 'blue', scale, isP1Active);
+      drawMetallicBall(ctx, state.pendulum1, 10 + state.mass1 / 5, 'blue', scale, isP1Active);
 
       if (mode === 'compound' && state.pendulum2.length > 0) {
         const isP2Active = state.dragTarget === 'p2';
-        drawMetallicBall(ctx, state.pendulum2, 10 + state.mass2/5, 'purple', scale, isP2Active);
+        drawMetallicBall(ctx, state.pendulum2, 10 + state.mass2 / 5, 'purple', scale, isP2Active);
       }
     }
     ctx.restore();

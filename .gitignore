@@ -1,0 +1,28 @@
+# Logs
+node_modules
+/dist
+/dist-ssr
+*.local
+
+# Editor folders and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Redundant / Backup files (Excluded from repo as per user request)
+PenduGalSon.html.backup
+PenduGalSon_original.html
+PenduGalSon.pdf
+index_modular.html
+PenduGalSon.html.backup
+PenduGalSon/
+
+# Vite
+*.log
+package-lock.json

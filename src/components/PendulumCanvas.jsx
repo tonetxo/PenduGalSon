@@ -3,23 +3,40 @@ import { usePhysics } from '../hooks/usePhysics';
 import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
 
-const PendulumCanvas = ({ 
-  isSimulating, 
-  mode, 
-  trailLength, 
-  isMuted, 
-  showInstructions, 
-  setShowInstructions 
+const PendulumCanvas = ({
+  isSimulating,
+  setIsSimulating,
+  mode,
+  trailLength,
+  isMuted,
+  showInstructions,
+  setShowInstructions,
+  gravity,
+  mass1,
+  mass2
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
-  const lastMouseRef = useRef({ x: 0, y: 0 });
-  
-  const { engineRef, updatePendulumPositions, resetSimulation } = usePhysics();
+  const trailLengthRef = useRef(trailLength);
+
+  const {
+    engineRef,
+    updatePendulumPositions,
+    updateGravity,
+    updateMass1,
+    updateMass2,
+    updateMode
+  } = usePhysics();
   const { initAudio, updateAudio } = useAudio(isMuted, isSimulating);
-  const { render } = usePendulumRenderer(canvasRef, view);
+  const { render } = usePendulumRenderer(canvasRef, viewRef);
+
+  useEffect(() => { trailLengthRef.current = trailLength; }, [trailLength]);
+  useEffect(() => { updateGravity(gravity); }, [gravity, updateGravity]);
+  useEffect(() => { updateMass1(mass1); }, [mass1, updateMass1]);
+  useEffect(() => { updateMass2(mass2); }, [mass2, updateMass2]);
+  useEffect(() => { updateMode(mode); }, [mode, updateMode]);
 
   const getScreenPos = useCallback((e) => {
     if (!e.touches && e.nativeEvent) {
@@ -32,11 +49,11 @@ const PendulumCanvas = ({
   }, []);
 
   const toWorld = useCallback((screenX, screenY) => {
-    const { x, y, scale } = view;
+    const { x, y, scale } = viewRef.current;
     return { x: (screenX - x) / scale, y: (screenY - y) / scale };
-  }, []);
+  }, [viewRef]);
 
-  const getDist = useCallback((a, b) => Math.sqrt((a.x - b.x)**2 + (a.y - b.y)**2), []);
+  const getDist = useCallback((a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2), []);
 
   const findTarget = useCallback((worldPos, hitRadius) => {
     const s = engineRef.current;
@@ -87,6 +104,10 @@ const PendulumCanvas = ({
         }
         s.isDragging = true;
         s.history = [];
+        // Pausar a simulación cando se arrastra calquera elemento do péndulo
+        if (target !== 'pan' && target !== 'zoom') {
+          setIsSimulating(false);
+        }
         return;
       }
     }
@@ -97,14 +118,15 @@ const PendulumCanvas = ({
       s.dragTarget = 'p1';
       s.isDragging = true;
       s.history = [];
-      // Aquí deberíamos parar a simulación a través do contexto
+      // Pausar a simulación mentres se crea o péndulo
+      setIsSimulating(false);
       setShowInstructions(false);
     } else {
       s.dragTarget = 'pan';
       s.isDragging = true;
       s.lastMouse = { x: screenPos.x, y: screenPos.y };
     }
-  }, [engineRef, getScreenPos, toWorld, findTarget, setShowInstructions]);
+  }, [engineRef, getScreenPos, toWorld, findTarget, setShowInstructions, setIsSimulating]);
 
   const handleMove = useCallback((e) => {
     const s = engineRef.current;
@@ -112,12 +134,12 @@ const PendulumCanvas = ({
     const worldPos = toWorld(screenPos.x, screenPos.y);
 
     if (!s.isDragging) {
-      const hitRadius = 50 / view.scale;
+      const hitRadius = 50 / viewRef.current.scale;
       if (s.pivot) {
         const target = findTarget(worldPos, hitRadius);
-        // Aquí deberíamos actualizar o cursor
+        canvasRef.current.style.cursor = target ? 'pointer' : 'default';
       } else {
-        // Aquí deberíamos actualizar o cursor
+        canvasRef.current.style.cursor = 'crosshair';
       }
       return;
     }
@@ -128,7 +150,11 @@ const PendulumCanvas = ({
         { x: e.touches[1].clientX, y: e.touches[1].clientY }
       );
       const ratio = d / s.lastPinchDist;
-      setView(prevView => ({ ...prevView, scale: Math.max(0.2, Math.min(4, prevView.scale * ratio)) }));
+      setView(prevView => {
+        const next = { ...prevView, scale: Math.max(0.2, Math.min(4, prevView.scale * ratio)) };
+        viewRef.current = next;
+        return next;
+      });
       s.lastPinchDist = d;
       return;
     }
@@ -136,7 +162,11 @@ const PendulumCanvas = ({
     if (s.dragTarget === 'pan') {
       const dx = screenPos.x - s.lastMouse.x;
       const dy = screenPos.y - s.lastMouse.y;
-      setView(prevView => ({ ...prevView, x: prevView.x + dx, y: prevView.y + dy }));
+      setView(prevView => {
+        const next = { ...prevView, x: prevView.x + dx, y: prevView.y + dy };
+        viewRef.current = next;
+        return next;
+      });
       s.lastMouse = { x: screenPos.x, y: screenPos.y };
       return;
     }
@@ -146,13 +176,13 @@ const PendulumCanvas = ({
     } else if (s.dragTarget === 'p1') {
       const dx = worldPos.x - s.pivot.x;
       const dy = worldPos.y - s.pivot.y;
-      s.pendulum1.length = Math.max(20, Math.sqrt(dx*dx + dy*dy));
+      s.pendulum1.length = Math.max(20, Math.sqrt(dx * dx + dy * dy));
       s.pendulum1.angle = Math.atan2(dx, dy);
       s.pendulum1.velocity = 0;
     } else if (s.dragTarget === 'p2') {
       const dx = worldPos.x - s.pendulum1.x;
       const dy = worldPos.y - s.pendulum1.y;
-      s.pendulum2.length = Math.max(10, Math.sqrt(dx*dx + dy*dy));
+      s.pendulum2.length = Math.max(10, Math.sqrt(dx * dx + dy * dy));
       s.pendulum2.angle = Math.atan2(dx, dy);
       s.pendulum2.velocity = 0;
     }
@@ -168,7 +198,8 @@ const PendulumCanvas = ({
     if (s.dragTarget === 'p1') {
       if (mode === 'simple') {
         if (s.dragStep === 1) {
-          // Iniciar simulación
+          // Iniciar simulación automaticamente ao completar a creación
+          setIsSimulating(true);
         }
         s.dragStep = 2;
       } else {
@@ -178,18 +209,18 @@ const PendulumCanvas = ({
           s.pendulum2.velocity = 0;
           updatePendulumPositions();
           s.dragStep = 2;
-          // Iniciar simulación
+          // Iniciar simulación automaticamente ao completar a creación
+          setIsSimulating(true);
         }
       }
     }
 
     s.isDragging = false;
     s.dragTarget = null;
-  }, [engineRef, mode, updatePendulumPositions]);
+  }, [engineRef, mode, updatePendulumPositions, setIsSimulating]);
 
   const loop = useCallback(() => {
     const s = engineRef.current;
-
     if (s.pivot) {
       if (isSimulating) {
         const dt = 0.2;
@@ -197,32 +228,37 @@ const PendulumCanvas = ({
         const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
 
         if (!isDraggingAny) {
-          if (mode === 'simple') {
-            // Cálculo para péndulo simple
+          if (s.mode === 'simple') {
             const accel = -(g / s.pendulum1.length) * Math.sin(s.pendulum1.angle);
             s.pendulum1.velocity += accel * dt;
             s.pendulum1.angle += s.pendulum1.velocity * dt;
             s.pendulum1.velocity *= 0.998;
           } else {
-            // Cálculo para péndulo composto
             const m1 = s.mass1, m2 = s.mass2, l1 = s.pendulum1.length, l2 = s.pendulum2.length;
             const a1 = s.pendulum1.angle, a2 = s.pendulum2.angle, v1 = s.pendulum1.velocity, v2 = s.pendulum2.velocity;
-            
+
             const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
-            if (den !== 0) {
-              const a1_acc = (-g*(2*m1+m2)*Math.sin(a1) - m2*g*Math.sin(a1-2*a2) - 2*Math.sin(a1-a2)*m2*(v2*v2*l2+v1*v1*l1*Math.cos(a1-a2))) / den;
-              const a2_acc = (2*Math.sin(a1-a2)*(v1*v1*l1*(m1+m2) + g*(m1+m2)*Math.cos(a1) + v2*v2*l2*m2*Math.cos(a1-a2))) / (l2 * (2*m1+m2-m2*Math.cos(2*a1-2*a2)));
+            if (den !== 0 && Number.isFinite(den)) {
+              const a1_acc = (-g * (2 * m1 + m2) * Math.sin(a1) - m2 * g * Math.sin(a1 - 2 * a2) - 2 * Math.sin(a1 - a2) * m2 * (v2 * v2 * l2 + v1 * v1 * l1 * Math.cos(a1 - a2))) / den;
+              const a2_acc = (2 * Math.sin(a1 - a2) * (v1 * v1 * l1 * (m1 + m2) + g * (m1 + m2) * Math.cos(a1) + v2 * v2 * l2 * m2 * Math.cos(a1 - a2))) / (l2 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2)));
 
               const safeA1Acc = Math.max(-10, Math.min(10, a1_acc));
               const safeA2Acc = Math.max(-10, Math.min(10, a2_acc));
 
-              s.pendulum1.velocity += safeA1Acc * dt; 
-              s.pendulum2.velocity += safeA2Acc * dt;
-              s.pendulum1.angle += s.pendulum1.velocity * dt; 
-              s.pendulum2.angle += s.pendulum2.velocity * dt;
+              // Validar que os cálculos son estables
+              if (Number.isFinite(safeA1Acc) && Number.isFinite(safeA2Acc)) {
+                s.pendulum1.velocity += safeA1Acc * dt;
+                s.pendulum2.velocity += safeA2Acc * dt;
+                s.pendulum1.angle += s.pendulum1.velocity * dt;
+                s.pendulum2.angle += s.pendulum2.velocity * dt;
 
-              s.pendulum1.velocity = Math.max(-2, Math.min(2, s.pendulum1.velocity));
-              s.pendulum2.velocity = Math.max(-3, Math.min(3, s.pendulum2.velocity));
+                s.pendulum1.velocity = Math.max(-2, Math.min(2, s.pendulum1.velocity));
+                s.pendulum2.velocity = Math.max(-3, Math.min(3, s.pendulum2.velocity));
+              } else {
+                // Reiniciar velocidades se o cálculo é inestable
+                s.pendulum1.velocity = 0;
+                s.pendulum2.velocity = 0;
+              }
             }
           }
         }
@@ -232,18 +268,15 @@ const PendulumCanvas = ({
 
       if (isSimulating && !s.isDragging) {
         s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y });
-        if (s.history.length > trailLength) {
-          s.history.splice(0, s.history.length - trailLength);
+        if (s.history.length > trailLengthRef.current) {
+          s.history.splice(0, s.history.length - trailLengthRef.current);
         }
-      } else if (!isSimulating && s.history.length > trailLength) {
-        s.history.splice(0, s.history.length - trailLength);
       }
 
       updateAudio(s);
     }
-
-    render(s, mode, trailLength);
-  }, [engineRef, isSimulating, mode, trailLength, updatePendulumPositions, updateAudio, render]);
+    render(s, s.mode, trailLengthRef.current);
+  }, [engineRef, isSimulating, updatePendulumPositions, updateAudio, render]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -281,18 +314,28 @@ const PendulumCanvas = ({
       window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
     };
-  }, [loop]);
+  }, [loop, engineRef]);
+
+  useEffect(() => {
+    const handleGlobalEnd = () => handleEnd();
+    window.addEventListener('mouseup', handleGlobalEnd);
+    window.addEventListener('touchend', handleGlobalEnd, { passive: false });
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalEnd);
+      window.removeEventListener('touchend', handleGlobalEnd);
+    };
+  }, [handleEnd]);
 
   return (
     <div className="flex-1 relative flex overflow-hidden">
       <div className="flex-1 relative bg-slate-50" ref={containerRef}>
         <canvas
           ref={canvasRef}
-          onMouseDown={handleStart} 
-          onMouseMove={(e) => { lastMouseRef.current = getScreenPos(e); handleMove(e); }} 
+          onMouseDown={handleStart}
+          onMouseMove={handleMove}
           onMouseUp={handleEnd}
-          onTouchStart={handleStart} 
-          onTouchMove={handleMove} 
+          onTouchStart={handleStart}
+          onTouchMove={handleMove}
           onTouchEnd={handleEnd}
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
@@ -302,8 +345,8 @@ const PendulumCanvas = ({
             <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
               <h3 className="text-2xl font-black mb-2">Composición Gravitatoria</h3>
               <p className="text-sm text-slate-500 mb-8 leading-relaxed">Arrastra no lenzo para crear. Preme 'Parar' para editar calquera parte do péndulo sen que se mova.</p>
-              <button 
-                onClick={() => { initAudio(); setShowInstructions(false); }} 
+              <button
+                onClick={() => { initAudio(); setShowInstructions(false); }}
                 className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-transform shadow-lg shadow-blue-200"
               >
                 Comezar

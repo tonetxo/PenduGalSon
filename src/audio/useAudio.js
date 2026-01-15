@@ -63,21 +63,22 @@ export const useAudio = (isMuted, isSimulating) => {
   }, []);
 
   const updateAudio = useCallback((state) => {
-    if (!nodesRef.current || isMuted || !isSimulating) {
-      if (nodesRef.current) {
-        const now = audioCtxRef.current.currentTime;
-        nodesRef.current.bass.gain.gain.setTargetAtTime(0, now, 0.1);
-        nodesRef.current.lead.gain.gain.setTargetAtTime(0, now, 0.1);
-        nodesRef.current.leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.1);
-      }
+    if (!nodesRef.current) return;
+
+    const { bass, lead, leadHarmonic, delay, ctx } = nodesRef.current;
+    const now = ctx.currentTime;
+
+    if (isMuted || !isSimulating) {
+      bass.gain.gain.setTargetAtTime(0, now, 0.05);
+      lead.gain.gain.setTargetAtTime(0, now, 0.05);
+      leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.05);
       return;
     }
 
-    const { bass, lead, leadHarmonic, delay, ctx } = nodesRef.current;
     const { pendulum1, pendulum2, pivot } = state;
     if (!pivot || !pendulum1 || !pendulum2) return;
-    const now = ctx.currentTime;
 
+    // Validar valores numéricos antes de usar
     const safeP1X = Number.isFinite(pendulum1.x) ? pendulum1.x : 0;
     const safeP1Y = Number.isFinite(pendulum1.y) ? pendulum1.y : 0;
     const safeP2X = Number.isFinite(pendulum2.x) ? pendulum2.x : 0;
@@ -91,7 +92,7 @@ export const useAudio = (isMuted, isSimulating) => {
     const dy2 = Math.max(0, Math.min(1, 1 - (safeP2Y - safePivotY + 300) / 600));
 
     const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 2);
-    if (Number.isFinite(freqBass)) {
+    if (Number.isFinite(freqBass) && freqBass > 20) {
       bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
     }
     bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol, now, 0.1);
@@ -100,7 +101,7 @@ export const useAudio = (isMuted, isSimulating) => {
     delay.delayTime.setTargetAtTime(dTime, now, 0.1);
 
     const freqLead = 261.6 * Math.pow(2, (dx2 + 1) * 3);
-    if (Number.isFinite(freqLead)) {
+    if (Number.isFinite(freqLead) && freqLead > 20) {
       lead.osc.frequency.setTargetAtTime(freqLead, now, 0.05);
       leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05);
     }
