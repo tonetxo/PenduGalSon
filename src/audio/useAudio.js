@@ -1,6 +1,6 @@
 import { useRef, useCallback } from 'react';
 
-export const useAudio = (isMuted, isSimulating) => {
+export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
   const audioCtxRef = useRef(null);
   const nodesRef = useRef(null);
 
@@ -26,7 +26,7 @@ export const useAudio = (isMuted, isSimulating) => {
         return { osc, gain, baseVol: volume };
       };
 
-      const bass = createOsc('triangle', 0.4);
+      const bass = createOsc('triangle', 0.7);
       const lead = createOsc('sine', 0.25);
       const leadHarmonic = createOsc('triangle', 0.1);
 
@@ -95,7 +95,8 @@ export const useAudio = (isMuted, isSimulating) => {
     if (Number.isFinite(freqBass) && freqBass > 20) {
       bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
     }
-    bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol, now, 0.1);
+    const vol1Multiplier = volume1 / 100;
+    bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol * vol1Multiplier, now, 0.1);
 
     const dTime = Math.max(0, Math.min(0.9, Math.abs(dx1) * 0.5));
     delay.delayTime.setTargetAtTime(dTime, now, 0.1);
@@ -106,10 +107,11 @@ export const useAudio = (isMuted, isSimulating) => {
       leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05);
     }
 
-    const volL = dy2 * lead.baseVol;
+    const vol2Multiplier = volume2 / 100;
+    const volL = dy2 * lead.baseVol * vol2Multiplier;
     lead.gain.gain.setTargetAtTime(volL, now, 0.1);
     leadHarmonic.gain.gain.setTargetAtTime(volL * 0.4, now, 0.1);
-  }, [isMuted, isSimulating]);
+  }, [isMuted, isSimulating, volume1, volume2]);
 
   return { initAudio, updateAudio };
 };

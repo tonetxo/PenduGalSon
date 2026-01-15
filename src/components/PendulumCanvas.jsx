@@ -13,7 +13,9 @@ const PendulumCanvas = ({
   setShowInstructions,
   gravity,
   mass1,
-  mass2
+  mass2,
+  volume1,
+  volume2
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -29,7 +31,7 @@ const PendulumCanvas = ({
     updateMass2,
     updateMode
   } = usePhysics();
-  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating);
+  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2);
   const { render } = usePendulumRenderer(canvasRef, viewRef);
 
   useEffect(() => { trailLengthRef.current = trailLength; }, [trailLength]);
