@@ -19,8 +19,8 @@ const App = () => {
 
   return (
     <PhysicsProvider initialState={{ gravity, mass1, mass2, mode }} isSimulating={isSimulating}>
-      <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden">
-        <header className="h-16 bg-white border-b px-6 flex justify-between items-center z-50 shadow-sm">
+      <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+        <header className="h-16 shrink-0 bg-white border-b px-4 md:px-6 flex justify-between items-center z-50 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,25 +29,28 @@ const App = () => {
                 <circle cx="18" cy="16" r="3"></circle>
               </svg>
             </div>
-            <span className="font-bold text-lg">Péndulo Musical</span>
+            <span className="font-bold text-lg hidden sm:block">Péndulo Musical</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSimulating(!isSimulating)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all ${isSimulating ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full font-bold transition-all ${isSimulating ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+              title={isSimulating ? "Parar" : "Reproducir"}
             >
               {isSimulating ? (
                 <>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <rect x="6" y="4" width="4" height="16" />
                     <rect x="14" y="4" width="4" height="16" />
-                  </svg> Parar
+                  </svg>
+                  <span className="hidden sm:inline">Parar</span>
                 </>
               ) : (
                 <>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5,3 19,12 5,21" />
-                  </svg> Reproducir
+                  </svg>
+                  <span className="hidden sm:inline">Reproducir</span>
                 </>
               )}
             </button>

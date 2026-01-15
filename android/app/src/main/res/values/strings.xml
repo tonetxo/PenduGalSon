@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PenduGalSon</string>
+    <string name="title_activity_main">PenduGalSon</string>
+    <string name="package_name">com.tonetxo.pendugalson</string>
+    <string name="custom_url_scheme">com.tonetxo.pendugalson</string>
+</resources>
