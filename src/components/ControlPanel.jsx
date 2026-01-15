@@ -19,7 +19,7 @@ const ControlPanel = ({
   setShowControls
 }) => {
   return (
-    <aside className={`absolute md:static right-0 top-0 bottom-0 w-72 bg-white border-l p-6 z-40 transition-transform duration-300 ${showControls ? 'translate-x-0 shadow-xl' : 'translate-x-full md:translate-x-0'}`}>
+    <aside className={`fixed bottom-0 left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none p-6 z-40 transition-transform duration-300 ${showControls ? 'translate-y-0 md:translate-x-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none' : 'translate-y-full md:translate-x-0'}`}>
       <div className="space-y-8">
         <section>
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Física</label>
