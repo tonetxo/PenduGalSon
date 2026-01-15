@@ -85,6 +85,32 @@ export const usePendulumRenderer = (canvasRef, view) => {
     }
   }, []);
 
+  const drawGrid = useCallback((ctx, width, height, scale, offsetX, offsetY) => {
+    const gridSize = 50; // Double density
+
+    // Calculate visible world bounds
+    const startX = Math.floor(-offsetX / scale / gridSize) * gridSize;
+    const endX = Math.ceil((width - offsetX) / scale / gridSize) * gridSize;
+    const startY = Math.floor(-offsetY / scale / gridSize) * gridSize;
+    const endY = Math.ceil((height - offsetY) / scale / gridSize) * gridSize;
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)'; // Very subtle
+    ctx.lineWidth = 0.25 / scale; // Ultra thin
+
+    // Vertical lines
+    for (let x = startX; x <= endX; x += gridSize) {
+      ctx.moveTo(x, startY);
+      ctx.lineTo(x, endY);
+    }
+    // Horizontal lines
+    for (let y = startY; y <= endY; y += gridSize) {
+      ctx.moveTo(startX, y);
+      ctx.lineTo(endX, y);
+    }
+    ctx.stroke();
+  }, []);
+
   const render = useCallback((state, mode, trailLength) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -97,6 +123,9 @@ export const usePendulumRenderer = (canvasRef, view) => {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
+
+    // DIBUJAR CUADRÍCULA (GRID)
+    drawGrid(ctx, canvas.width, canvas.height, scale, x, y);
 
     if (state.pivot) {
       // ESTELA SUAVE

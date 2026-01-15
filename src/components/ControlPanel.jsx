@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const ControlPanel = ({
   gravity,
@@ -18,9 +18,74 @@ const ControlPanel = ({
   showControls,
   setShowControls
 }) => {
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startY = useRef(0);
+  const currentY = useRef(0);
+
+  // Reset drag offset when panel is toggled
+  useEffect(() => {
+    if (!showControls) {
+      setDragOffset(0);
+    }
+  }, [showControls]);
+
+  const handleTouchStart = (e) => {
+    setIsDragging(true);
+    startY.current = e.touches[0].clientY;
+    currentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    const y = e.touches[0].clientY;
+    const delta = y - startY.current;
+
+    // Only allow dragging down (positive delta)
+    if (delta > 0) {
+      setDragOffset(delta);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+
+    // If dragged more than 100px, close the panel
+    if (dragOffset > 100) {
+      setShowControls(false);
+    }
+
+    // Always reset offset to let CSS transition take over (either to closed 100% or open 0%)
+    setDragOffset(0);
+  };
+
+  // Calculate transform for mobile only
+  const getTransform = () => {
+    // If dragging, follow finger
+    if (isDragging) {
+      return `translateY(${dragOffset}px)`;
+    }
+    // If not dragging, rely on CSS classes (handled by parent logic, but we need to override if showControls is true)
+    // Actually, we use the classes for base state, and inline style only during drag
+    return undefined;
+  };
+
   return (
-    <aside className={`fixed bottom-0 left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none p-6 z-40 transition-transform duration-300 ${showControls ? 'translate-y-0 md:translate-x-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none' : 'translate-y-full md:translate-x-0'}`}>
-      <div className="space-y-8">
+    <aside
+      className={`fixed bottom-0 left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none z-40 transition-transform ${isDragging ? 'duration-0' : 'duration-300'} ${showControls ? 'translate-y-0 md:translate-x-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none' : 'translate-y-full md:translate-x-0'}`}
+      style={{ transform: isDragging ? `translateY(${dragOffset}px)` : undefined }}
+    >
+      {/* Drag Handle Area */}
+      <div
+        className="w-full h-12 flex items-center justify-center md:hidden touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+      </div>
+
+      <div className="px-6 pb-6 md:p-6 space-y-8 h-auto max-h-[80vh] md:max-h-none md:h-auto overflow-y-auto">
         <section>
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Física</label>
           <div className="flex p-1 bg-slate-100 rounded-xl">
@@ -147,16 +212,6 @@ const ControlPanel = ({
             </>
           )}
         </section>
-
-        <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-[11px] text-amber-800 leading-relaxed shadow-sm">
-          <p className="font-bold flex items-center gap-1 mb-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-            Visualización
-          </p>
-          Usa o novo control deslizante de rastro para ver traxectorias máis curtas ou máis longas no modo dobre.
-        </div>
       </div>
     </aside>
   );

@@ -15,7 +15,9 @@ const PendulumCanvas = ({
   mass1,
   mass2,
   volume1,
-  volume2
+  volume2,
+  snapEnabled,
+  setSnapEnabled
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -171,6 +173,13 @@ const PendulumCanvas = ({
       });
       s.lastMouse = { x: screenPos.x, y: screenPos.y };
       return;
+    }
+
+    // APLICAR SNAP TO GRID
+    if (snapEnabled) {
+      const gridSize = 50;
+      worldPos.x = Math.round(worldPos.x / gridSize) * gridSize;
+      worldPos.y = Math.round(worldPos.y / gridSize) * gridSize;
     }
 
     if (s.dragTarget === 'pivot') {
@@ -341,6 +350,20 @@ const PendulumCanvas = ({
           onTouchEnd={handleEnd}
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
+
+        {/* Botón de Snap to Grid */}
+        <button
+          onClick={() => setSnapEnabled(!snapEnabled)}
+          className={`absolute top-4 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapEnabled ? 'bg-blue-600 text-white border-blue-700 shadow-blue-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-blue-600'}`}
+          title={snapEnabled ? "Desactivar Axuste a Cadrícula" : "Activar Axuste a Cadrícula"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.5 5h7c.276 0 .5.224.5.5v7c0 .276-.224.5-.5.5h-7a.5.5 0 0 1-.5-.5v-7c0-.276.224-.5.5-.5Z"></path>
+            <path d="M12.5 13h7c.276 0 .5.224.5.5v3.5c0 .276-.224.5-.5.5h-7a.5.5 0 0 1-.5-.5v-3.5c0-.276.224-.5.5-.5Z"></path>
+            <path d="M11 13H4a.5.5 0 0 1-.5-.5v-3.5c0-.276.224-.5.5-.5h7c.276 0 .5.224.5.5v3.5c0 .276-.224.5-.5.5Z"></path>
+            <path d="M11 5H4a.5.5 0 0 1-.5-.5v-1c0-.276.224-.5.5-.5h7c.276 0 .5.224.5.5v1c0 .276-.224.5-.5.5Z"></path>
+          </svg>
+        </button>
 
         {showInstructions && (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">

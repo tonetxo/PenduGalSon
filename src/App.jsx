@@ -16,10 +16,11 @@ const App = () => {
   const [showInstructions, setShowInstructions] = useState(true);
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(false);
 
   return (
     <PhysicsProvider initialState={{ gravity, mass1, mass2, mode }} isSimulating={isSimulating}>
-      <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+      <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden pt-[env(safe-area-inset-top,32px)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         <header className="h-16 shrink-0 bg-white border-b px-4 md:px-6 flex justify-between items-center z-50 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg">
@@ -117,6 +118,8 @@ const App = () => {
             mass2={mass2}
             volume1={volume1}
             volume2={volume2}
+            snapEnabled={snapEnabled}
+            setSnapEnabled={setSnapEnabled}
           />
 
           <ControlPanel
