@@ -284,8 +284,8 @@ const PendulumCanvas = ({
         }
       }
 
-      updateAudio(s);
     }
+    updateAudio(s);
     render(s, s.mode, trailLengthRef.current);
   }, [engineRef, isSimulating, updatePendulumPositions, updateAudio, render]);
 

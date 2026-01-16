@@ -68,15 +68,13 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     const { bass, lead, leadHarmonic, delay, ctx } = nodesRef.current;
     const now = ctx.currentTime;
 
-    if (isMuted || !isSimulating) {
+    const { pendulum1, pendulum2, pivot } = state;
+    if (isMuted || !isSimulating || !pivot || !pendulum1 || !pendulum2) {
       bass.gain.gain.setTargetAtTime(0, now, 0.05);
       lead.gain.gain.setTargetAtTime(0, now, 0.05);
       leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.05);
       return;
     }
-
-    const { pendulum1, pendulum2, pivot } = state;
-    if (!pivot || !pendulum1 || !pendulum2) return;
 
     // Validar valores numéricos antes de usar
     const safeP1X = Number.isFinite(pendulum1.x) ? pendulum1.x : 0;
