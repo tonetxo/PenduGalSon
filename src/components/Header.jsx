@@ -26,7 +26,6 @@ const Header = ({
         setTrailLength(200);
         // Preservamos el modo actual
         setIsSimulating(false);
-        setShowInstructions(true);
     };
 
     return (

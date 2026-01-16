@@ -42,6 +42,13 @@ const PendulumCanvas = ({
   useEffect(() => { updateMass2(mass2); }, [mass2, updateMass2]);
   useEffect(() => { updateMode(mode); }, [mode, updateMode]);
 
+  // Asegurar que o audio se inicializa cando se empeza a simular
+  useEffect(() => {
+    if (isSimulating) {
+      initAudio();
+    }
+  }, [isSimulating, initAudio]);
+
   const getScreenPos = useCallback((e) => {
     if (!e.touches && e.nativeEvent) {
       return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
@@ -366,16 +373,48 @@ const PendulumCanvas = ({
         </button>
 
         {showInstructions && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-            <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl">
-              <h3 className="text-2xl font-black mb-2">Composición Gravitatoria</h3>
-              <p className="text-sm text-slate-500 mb-8 leading-relaxed">Arrastra no lenzo para crear. Preme 'Parar' para editar calquera parte do péndulo sen que se mova.</p>
-              <button
-                onClick={() => { initAudio(); setShowInstructions(false); }}
-                className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-transform shadow-lg shadow-blue-200"
-              >
-                Comezar
-              </button>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl my-auto">
+              <div className="text-center mb-6">
+                <h3 className="text-3xl font-pendugal text-blue-800 mb-1">PenduGalSon</h3>
+                <p className="text-sm font-medium text-slate-400 italic">Máquina de ritmo cinético e harmonía gravitatoria</p>
+              </div>
+
+              <div className="text-slate-600 space-y-4 text-sm sm:text-base leading-relaxed mb-8 text-center sm:text-left">
+                <p>
+                  Nesta singular estancia sonora, as leis de Newton danse a man coa melodía do éter.
+                  Ao trazar o movemento no lenzo, invocamos forzas invisibles que transforman a xeometría en vibración.
+                </p>
+                <p>
+                  Cada oscilación é un testemuño do equilibrio entre a orde matemática e o azar primordial,
+                  unha viaxe sensorial polas estelas que deixa a gravidade no espazo-tempo.
+                </p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="font-bold text-slate-800 mb-2 flex items-center gap-2 justify-center sm:justify-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11l5 3V15Z" /></svg>
+                    Tradución sonara de forzas:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-sm">
+                    <li>O <span className="font-bold">movemento lateral</span> dita o ton e o pulso.</li>
+                    <li>A <span className="font-bold">caída vertical</span> modula a intensidade da voz.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <button
+                  onClick={() => { initAudio(); setShowInstructions(false); }}
+                  className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-transform shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
+                >
+                  Continuar Experimento
+                </button>
+
+                <div className="text-center pt-2 border-t border-slate-100">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Autoría e Credenciais</p>
+                  <p className="text-sm font-bold text-slate-800">© Toño Pita 2026</p>
+                  <a href="mailto:tonetxo@gmail.com" className="text-xs text-blue-500 hover:underline">tonetxo@gmail.com</a>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -14,7 +14,7 @@ const App = () => {
   const [trailLength, setTrailLength] = useState(200);
   const [mode, setMode] = useState('simple');
   const [isSimulating, setIsSimulating] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [snapEnabled, setSnapEnabled] = useState(false);
