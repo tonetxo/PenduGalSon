@@ -21,21 +21,28 @@ const App = () => {
   return (
     <PhysicsProvider initialState={{ gravity, mass1, mass2, mode }} isSimulating={isSimulating}>
       <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 select-none overflow-hidden pt-[env(safe-area-inset-top,32px)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
-        <header className="h-16 shrink-0 bg-white border-b px-4 md:px-6 flex justify-between items-center z-50 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18V5l12-2v13"></path>
-                <circle cx="6" cy="18" r="3"></circle>
-                <circle cx="18" cy="16" r="3"></circle>
-              </svg>
+        <header className="h-auto sm:h-16 shrink-0 bg-white border-b px-4 md:px-6 flex flex-col sm:flex-row justify-between items-center z-50 shadow-sm py-2 sm:py-0 transition-all">
+          <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </div>
+              <span className="font-bold text-lg hidden md:block">Péndulo Musical</span>
+              <span className="font-pendugal text-2xl text-blue-800 ml-1">PenduGalSon</span>
             </div>
-            <span className="font-bold text-lg hidden sm:block">Péndulo Musical</span>
+
+            {/* Mobile-only toggle or additional info button could go here if needed, 
+                for now we just balance the space in the first row */}
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-2 mt-2 sm:mt-0">
             <button
               onClick={() => setIsSimulating(!isSimulating)}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full font-bold transition-all ${isSimulating ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-bold transition-all ${isSimulating ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
               title={isSimulating ? "Parar" : "Reproducir"}
             >
               {isSimulating ? (

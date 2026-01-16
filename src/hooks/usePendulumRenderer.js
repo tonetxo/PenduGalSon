@@ -95,8 +95,8 @@ export const usePendulumRenderer = (canvasRef, view) => {
     const endY = Math.ceil((height - offsetY) / scale / gridSize) * gridSize;
 
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)'; // Very subtle
-    ctx.lineWidth = 0.25 / scale; // Ultra thin
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; // More perceptible
+    ctx.lineWidth = 0.5 / scale; // Slightly thicker
 
     // Vertical lines
     for (let x = startX; x <= endX; x += gridSize) {

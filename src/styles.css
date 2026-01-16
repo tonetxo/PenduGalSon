@@ -1,3 +1,21 @@
+@font-face {
+  font-family: 'GaliciaDiario';
+  src: url('/assets/GALICIADIARIO1922-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Castelao';
+  src: url('/assets/Castelao.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-pendugal {
+  font-family: 'GaliciaDiario', 'Castelao', serif;
+}
+
 /* PenduGalSon - Estilos base */
 html,
 body,
