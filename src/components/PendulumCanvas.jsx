@@ -53,6 +53,7 @@ const PendulumCanvas = ({
     if (!e.touches && e.nativeEvent) {
       return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
     }
+    if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -148,9 +149,9 @@ const PendulumCanvas = ({
       const hitRadius = 50 / viewRef.current.scale;
       if (s.pivot) {
         const target = findTarget(worldPos, hitRadius);
-        canvasRef.current.style.cursor = target ? 'pointer' : 'default';
+        if (canvasRef.current) canvasRef.current.style.cursor = target ? 'pointer' : 'default';
       } else {
-        canvasRef.current.style.cursor = 'crosshair';
+        if (canvasRef.current) canvasRef.current.style.cursor = 'crosshair';
       }
       return;
     }

@@ -187,7 +187,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
       }
     }
     ctx.restore();
-  }, [canvasRef, view, drawRingAnchor, drawMetallicBall]);
+  }, [canvasRef, view, drawRingAnchor, drawMetallicBall, drawGrid]);
 
   return { render };
 };

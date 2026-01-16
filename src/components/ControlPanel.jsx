@@ -59,16 +59,6 @@ const ControlPanel = ({
     setDragOffset(0);
   };
 
-  // Calculate transform for mobile only
-  const getTransform = () => {
-    // If dragging, follow finger
-    if (isDragging) {
-      return `translateY(${dragOffset}px)`;
-    }
-    // If not dragging, rely on CSS classes (handled by parent logic, but we need to override if showControls is true)
-    // Actually, we use the classes for base state, and inline style only during drag
-    return undefined;
-  };
 
   return (
     <aside

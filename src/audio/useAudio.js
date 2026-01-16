@@ -76,30 +76,35 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
       return;
     }
 
-    // Validar valores numéricos antes de usar
-    const safeP1X = Number.isFinite(pendulum1.x) ? pendulum1.x : 0;
-    const safeP1Y = Number.isFinite(pendulum1.y) ? pendulum1.y : 0;
-    const safeP2X = Number.isFinite(pendulum2.x) ? pendulum2.x : 0;
-    const safeP2Y = Number.isFinite(pendulum2.y) ? pendulum2.y : 0;
-    const safePivotX = Number.isFinite(pivot.x) ? pivot.x : 0;
-    const safePivotY = Number.isFinite(pivot.y) ? pivot.y : 0;
+    // Usar ángulos e velocidades (independentes da escala/zoom)
+    const p1Angle = Number.isFinite(pendulum1.angle) ? pendulum1.angle : 0;
+    const p1Velocity = Math.abs(Number.isFinite(pendulum1.velocity) ? pendulum1.velocity : 0);
+    const p2Angle = Number.isFinite(pendulum2.angle) ? pendulum2.angle : 0;
+    const p2Velocity = Math.abs(Number.isFinite(pendulum2.velocity) ? pendulum2.velocity : 0);
 
-    const dx1 = Math.max(-2, Math.min(2, (safeP1X - safePivotX) / 400));
-    const dy1 = Math.max(0, Math.min(1, 1 - (safeP1Y - safePivotY + 300) / 600));
-    const dx2 = Math.max(-2, Math.min(2, (safeP2X - safePivotX) / 400));
-    const dy2 = Math.max(0, Math.min(1, 1 - (safeP2Y - safePivotY + 300) / 600));
+    // Normalizar: sin(angle) está en [-1, 1]
+    // dx controla a frecuencia (esquerda = grave, dereita = agudo)
+    const dx1 = Math.sin(p1Angle);
+    // dy controla o volume baseándose na velocidade (máis rápido = máis forte)
+    const dy1 = Math.min(1, p1Velocity / 0.8 + 0.3); // Base de 0.3 para que sempre soe algo
 
-    const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 2);
+    const dx2 = Math.sin(p2Angle);
+    const dy2 = Math.min(1, p2Velocity / 0.6 + 0.2);
+
+    // Bass: Frecuencia baseada no ángulo do péndulo 1
+    const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 1.5); // C2 a C5
     if (Number.isFinite(freqBass) && freqBass > 20) {
       bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
     }
     const vol1Multiplier = volume1 / 100;
     bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol * vol1Multiplier, now, 0.1);
 
-    const dTime = Math.max(0, Math.min(0.9, Math.abs(dx1) * 0.5));
+    // Delay baseado na amplitude do ángulo
+    const dTime = Math.max(0.05, Math.min(0.7, Math.abs(p1Angle) * 0.3));
     delay.delayTime.setTargetAtTime(dTime, now, 0.1);
 
-    const freqLead = 261.6 * Math.pow(2, (dx2 + 1) * 3);
+    // Lead: Frecuencia baseada no ángulo do péndulo 2
+    const freqLead = 261.6 * Math.pow(2, (dx2 + 1) * 2); // C4 a C8
     if (Number.isFinite(freqLead) && freqLead > 20) {
       lead.osc.frequency.setTargetAtTime(freqLead, now, 0.05);
       leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05);
