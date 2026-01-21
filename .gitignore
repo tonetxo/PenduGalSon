@@ -26,3 +26,8 @@ PenduGalSon/
 # Vite
 *.log
 package-lock.json
+
+# Keystore credentials
+keystore.properties
+*.keystore
+*.jks
