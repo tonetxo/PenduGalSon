@@ -1,107 +1,40 @@
-# PenduGalSon - Estado del Proyecto
+# Estado do Proxecto: PenduGalSon
 
-**Fecha**: 16 de Enero de 2026  
-**Rama**: `feature/android-playstore`  
-**Último commit**: `637c1fb` - refactor: mapeo de audio baseado en ángulo e velocidade
+Data da última actualización: 21 de xaneiro de 2026
 
----
+## 🚀 Situación Actual: Lanzamento en Play Store
 
-## Resumen
+O proxecto atópase na fase final de publicación en Google Play Store. O código é estable, pasou unha auditoría de seguridade e os binarios de produción xa foron xerados.
 
-PenduGalSon es una aplicación de péndulo musical que transforma el movimiento físico en sonido. El proyecto está listo para revisión final antes de su publicación en Google Play Store.
+### ✅ Fitos Acadados
 
-## Funcionalidades Implementadas
+- **Binario de Produción**: Xerado con éxito o ficheiro Android App Bundle (`app-release.aab`) asinado.
+- **Seguridade**: Auditoría completada (sen fugas de segredos, comunicacións seguras).
+- **Firma Dixital**: Keystore de produción creado e configurado no proxecto (`pendugalson-release.keystore`).
+- **Política de Privacidade**: Ficheiro `privacy.html` creado en galego e aloxado en GitHub Pages.
+- **Git**: Repositorio sincronizado coa pola `feature/android-playstore` en GitHub.
 
-### Simulación Física
+### 🛠️ Detalles Técnicos
 
-- ✅ Péndulo simple con física newtoniana
-- ✅ Péndulo doble (compuesto) con ecuaciones de movimiento acopladas
-- ✅ Arrastre interactivo de pivote y masas
-- ✅ Zoom y pan del lienzo
-- ✅ Snap to grid opcional
+- **Ruta do AAB**: `android/app/build/outputs/bundle/release/app-release.aab`
+- **Ruta do Keystore**: `android/pendugalson-release.keystore`
+- **Ruta da Privacidade**: `https://tonetxo.github.io/PenduGalSon/privacy.html`
+- **Configuración Gradle**: Uso de `keystore.properties` para xestionar credenciais de firma de forma segura (ignorado en Git).
 
-### Audio Generativo
+### ⏳ Pendente de Acción (Google Play Console)
 
-- ✅ Síntesis en tiempo real con Web Audio API
-- ✅ Bass (triángulo) y Lead (seno + armónico)
-- ✅ Mapeo de audio basado en ángulo y velocidad (independiente del zoom)
-- ✅ Control de volumen individual por péndulo
-- ✅ Efecto de delay dinámico
-
-### Interfaz de Usuario
-
-- ✅ Header responsive con dos filas en móvil
-- ✅ Panel de control deslizable (bottom sheet)
-- ✅ Fuentes personalizadas gallegas (GaliciaDiario, Castelao)
-- ✅ Panel de información poético con créditos
-- ✅ Botones de Play/Pause, Mute, Reset, Menú, Ayuda
-
-### Plataforma
-
-- ✅ Build de producción con Vite
-- ✅ Empaquetado Android con Capacitor
-- ✅ Probado en dispositivo físico
+- **Verificación de Identidade**: Google está procesando os documentos de identidade do propietario (pode tardar uns días).
+- **Configuración da Ficha**: Pendente de subir icona (512x512) e capturas de pantalla de móvil (mínimo 2).
+- **Lanzamento**: Unha vez verificada a identidade e completada a ficha, proceder á subida do AAB a produción.
 
 ---
 
-## Arquitectura de Código
+## 📅 Próximos Pasos (Tras a verificación)
 
-```
-src/
-├── App.jsx              # Componente raíz, gestión de estado global
-├── main.jsx             # Entry point
-├── styles.css           # Estilos base y fuentes personalizadas
-├── audio/
-│   └── useAudio.js      # Hook de síntesis de audio (ángulo/velocidad)
-├── components/
-│   ├── Header.jsx       # Cabecera con controles principales
-│   ├── ControlPanel.jsx # Panel lateral de ajustes físicos
-│   └── PendulumCanvas.jsx # Canvas, interacción y modal de ayuda
-└── hooks/
-    ├── usePhysics.jsx       # Provider y estado del motor de física
-    └── usePendulumRenderer.js # Renderizado canvas 2D
-```
+1. Subir o AAB `app-release.aab` á canle de produción.
+2. Definir o público obxectivo e clasificación de contido (PEGI 3).
+3. Solicitar a revisión final da aplicación por parte de Google.
+4. Publicación definitiva na tenda.
 
 ---
-
-## Cambios Realizados (Sesión 16/01/2026)
-
-1. **Header Redesign**: Título "PenduGalSon", dos filas en móvil, iconos reorganizados
-2. **Grid Visibility**: Mayor opacidad y grosor de líneas
-3. **Reset Functionality**: Limpieza completa del lienzo + silencio audio
-4. **Poetic Info**: Descripción artística en gallego + © Toño Pita 2026
-5. **Code Review Fixes**: Null checks, código muerto eliminado, dependencias
-6. **Audio Refactor**: Mapeo basado en ángulo/velocidad (independiente del zoom)
-
----
-
-## Pendientes para Play Store
-
-- [ ] Generar APK/AAB firmado para producción
-- [ ] Preparar capturas de pantalla para la ficha
-- [ ] Redactar descripción de la tienda (gallego + español)
-- [ ] Configurar política de privacidad
-- [ ] Subir a Google Play Console
-
----
-
-## Comandos Útiles
-
-```bash
-# Desarrollo local
-npm run dev
-
-# Build de producción
-npm run build
-
-# Sincronizar con Android
-npx cap sync
-
-# Desplegar a dispositivo
-export ANDROID_HOME=/home/tonetxo/Android/Sdk
-npx cap run android --target=38171FDJG007SK
-```
-
----
-
-**Contacto**: <tonetxo@gmail.com>
+© Toño Pita 2026
