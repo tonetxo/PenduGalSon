@@ -1,40 +1,40 @@
 # Estado do Proxecto: PenduGalSon
 
-Data da última actualización: 21 de xaneiro de 2026
+Data da última actualización: 10 de febreiro de 2026
 
-## 🚀 Situación Actual: Lanzamento en Play Store
+## 🚀 Situación Actual: Lanzamento en Play Store (v1.2)
 
-O proxecto atópase na fase final de publicación en Google Play Store. O código é estable, pasou unha auditoría de seguridade e os binarios de produción xa foron xerados.
+O proxecto atópase listo para publicación en Google Play Store coa versión **1.2 (3)**. Solucionáronse os problemas de compatibilidade con Android 15 (Edge-to-Edge) e eliminouse a barra de título nativa persistente.
 
 ### ✅ Fitos Acadados
 
-- **Binario de Produción**: Xerado con éxito o ficheiro Android App Bundle (`app-release.aab`) asinado.
-- **Seguridade**: Auditoría completada (sen fugas de segredos, comunicacións seguras).
-- **Firma Dixital**: Keystore de produción creado e configurado no proxecto (`pendugalson-release.keystore`).
-- **Política de Privacidade**: Ficheiro `privacy.html` creado en galego e aloxado en GitHub Pages.
-- **Git**: Repositorio sincronizado coa pola `feature/android-playstore` en GitHub.
+- **Compatibilidade Android 15**: Implementado `EdgeToEdge.enable()` e axustes de `safe-area` no CSS.
+- **Corrección Visual**: Eliminada a `ActionBar` nativa forzando o tema `MaterialComponents.DayNight.NoActionBar` e ocultándoa por código.
+- **Binario de Produción**: Xerado con éxito o ficheiro Android App Bundle (`app-release.aab`) asinado (v1.2).
+- **Seguridade**: Auditoría completada e firma dixital configurada.
+- **Política de Privacidade**: Ficheiro `privacy.html` aloxado e listo.
 
 ### 🛠️ Detalles Técnicos
 
+- **Versión**: 1.2 (versionCode 3)
+- **SDK Objetivo**: 36 (Android 15+)
 - **Ruta do AAB**: `android/app/build/outputs/bundle/release/app-release.aab`
-- **Ruta do Keystore**: `android/pendugalson-release.keystore`
-- **Ruta da Privacidade**: `https://tonetxo.github.io/PenduGalSon/privacy.html`
-- **Configuración Gradle**: Uso de `keystore.properties` para xestionar credenciais de firma de forma segura (ignorado en Git).
+- **Ruta do APK**: `android/app/build/outputs/apk/release/app-release.apk`
+- **Keystore**: `android/pendugalson-release.keystore`
 
 ### ⏳ Pendente de Acción (Google Play Console)
 
-- **Verificación de Identidade**: Google está procesando os documentos de identidade do propietario (pode tardar uns días).
-- **Configuración da Ficha**: Pendente de subir icona (512x512) e capturas de pantalla de móvil (mínimo 2).
-- **Lanzamento**: Unha vez verificada a identidade e completada a ficha, proceder á subida do AAB a produción.
+- **Subir nova versión**: Cargar o AAB v1.2 á Play Console para substituír a versión anterior con advertencias.
+- **Verificación de Identidade**: Completar se aínda está pendente.
+- **Lanzamento**: Enviar a revisión e publicar.
 
 ---
 
-## 📅 Próximos Pasos (Tras a verificación)
+## 📅 Próximos Pasos
 
-1. Subir o AAB `app-release.aab` á canle de produción.
-2. Definir o público obxectivo e clasificación de contido (PEGI 3).
-3. Solicitar a revisión final da aplicación por parte de Google.
-4. Publicación definitiva na tenda.
+1. Probar a fondo a versión instalada no dispositivo móbil.
+2. Subir o AAB `app-release.aab` á canle de produción/testing.
+3. Solicitar revisión en Google Play.
 
 ---
 © Toño Pita 2026

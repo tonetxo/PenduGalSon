@@ -9,5 +9,10 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
+        
+        // Forza a ocultar a ActionBar se existe
+        if (getActionBar() != null) {
+            getActionBar().hide();
+        }
     }
 }
