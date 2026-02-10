@@ -31,3 +31,6 @@ package-lock.json
 keystore.properties
 *.keystore
 *.jks
+
+# Project tracking
+ESTADO_PROYECTO.md
