@@ -30,10 +30,12 @@ const ControlPanel = ({
     }
   }, [showControls]);
 
+  // Track visible state for drag calculations
+  const isClosed = !showControls;
+
   const handleTouchStart = (e) => {
     setIsDragging(true);
     startY.current = e.touches[0].clientY;
-    currentY.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e) => {
@@ -41,8 +43,15 @@ const ControlPanel = ({
     const y = e.touches[0].clientY;
     const delta = y - startY.current;
 
-    // Only allow dragging down (positive delta)
-    if (delta > 0) {
+    // Logic:
+    // If OPEN: delta > 0 closes it (pushes down).
+    // If CLOSED: delta < 0 opens it (pulls up).
+
+    if (!isClosed && delta > 0) {
+      // Dragging down while open
+      setDragOffset(delta);
+    } else if (isClosed && delta < 0) {
+      // Dragging up while closed
       setDragOffset(delta);
     }
   };
@@ -50,29 +59,38 @@ const ControlPanel = ({
   const handleTouchEnd = () => {
     setIsDragging(false);
 
-    // If dragged more than 100px, close the panel
-    if (dragOffset > 100) {
-      setShowControls(false);
+    if (!isClosed) {
+      // Closing: if dragged down more than 100px
+      if (dragOffset > 100) setShowControls(false);
+    } else {
+      // Opening: if dragged up more than 100px (negative offset)
+      if (dragOffset < -100) setShowControls(true);
     }
 
-    // Always reset offset to let CSS transition take over (either to closed 100% or open 0%)
     setDragOffset(0);
   };
 
+  // Calculate transform style based on state
+  // Open: translateY(offset px)  -> offset is positive
+  // Closed: translateY(calc(100% + offset px)) -> offset is negative
+  const transformStyle = isDragging
+    ? { transform: isClosed ? `translateY(calc(100% + ${dragOffset}px))` : `translateY(${dragOffset}px)` }
+    : undefined;
 
   return (
     <aside
       className={`fixed bottom-[50px] left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none z-40 transition-transform ${isDragging ? 'duration-0' : 'duration-300'} ${showControls ? 'translate-y-0 md:translate-x-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none' : 'translate-y-full md:translate-x-0'}`}
-      style={{ transform: isDragging ? `translateY(${dragOffset}px)` : undefined }}
+      style={transformStyle}
     >
-      {/* Drag Handle Area */}
+      {/* Drag Handle Area - Absolute positioned to stick out */}
       <div
-        className="w-full h-12 flex items-center justify-center md:hidden touch-none"
+        className="absolute -top-12 left-0 right-0 h-12 flex items-end justify-center pb-3 md:hidden touch-none bg-gradient-to-t from-white/50 to-transparent"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
+        {/* Visual Pill */}
+        <div className="w-16 h-1.5 bg-blue-500/80 rounded-full shadow-sm backdrop-blur-sm" />
       </div>
 
       <div className="px-6 pb-6 md:p-6 space-y-8 h-auto max-h-[80vh] md:max-h-none md:h-auto overflow-y-auto">
