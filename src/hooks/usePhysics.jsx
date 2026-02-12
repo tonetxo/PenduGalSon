@@ -1,4 +1,4 @@
-import { useRef, useContext, createContext } from 'react';
+import { useRef, useContext, createContext, useCallback, useMemo } from 'react';
 
 const PhysicsContext = createContext();
 
@@ -26,7 +26,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     ...initialState
   });
 
-  const updatePendulumPositions = () => {
+  const updatePendulumPositions = useCallback(() => {
     const s = engineRef.current;
     if (s.pivot) {
       s.pendulum1.x = s.pivot.x + s.pendulum1.length * Math.sin(s.pendulum1.angle);
@@ -37,9 +37,9 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
         s.pendulum2.y = s.pendulum1.y + s.pendulum2.length * Math.cos(s.pendulum2.angle);
       }
     }
-  };
+  }, []);
 
-  const resetSimulation = () => {
+  const resetSimulation = useCallback(() => {
     const s = engineRef.current;
     s.pivot = null;
     s.history = [];
@@ -48,12 +48,12 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     s.dragStep = 0;
     s.isDragging = false;
     s.dragTarget = null;
-  };
+  }, []);
 
-  const updateGravity = (g) => { engineRef.current.gravity = g; };
-  const updateMass1 = (m) => { engineRef.current.mass1 = m; };
-  const updateMass2 = (m) => { engineRef.current.mass2 = m; };
-  const updateMode = (m) => {
+  const updateGravity = useCallback((g) => { engineRef.current.gravity = g; }, []);
+  const updateMass1 = useCallback((m) => { engineRef.current.mass1 = m; }, []);
+  const updateMass2 = useCallback((m) => { engineRef.current.mass2 = m; }, []);
+  const updateMode = useCallback((m) => {
     const s = engineRef.current;
     s.mode = m;
     // Se cambiamos a modo compound cun péndulo existente, inicializar pendulum2
@@ -65,9 +65,9 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
       s.pendulum2.x = s.pendulum1.x + s.pendulum2.length * Math.sin(s.pendulum2.angle);
       s.pendulum2.y = s.pendulum1.y + s.pendulum2.length * Math.cos(s.pendulum2.angle);
     }
-  };
+  }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     engineRef,
     updatePendulumPositions,
     resetSimulation,
@@ -76,7 +76,15 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     updateMass1,
     updateMass2,
     updateMode
-  };
+  }), [
+    updatePendulumPositions,
+    resetSimulation,
+    isSimulating,
+    updateGravity,
+    updateMass1,
+    updateMass2,
+    updateMode
+  ]);
 
   return (
     <PhysicsContext.Provider value={value}>

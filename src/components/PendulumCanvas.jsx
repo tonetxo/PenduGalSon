@@ -24,6 +24,7 @@ const PendulumCanvas = ({
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const trailLengthRef = useRef(trailLength);
+  const isSimulatingRef = useRef(isSimulating);
 
   const {
     engineRef,
@@ -37,6 +38,7 @@ const PendulumCanvas = ({
   const { render } = usePendulumRenderer(canvasRef, viewRef);
 
   useEffect(() => { trailLengthRef.current = trailLength; }, [trailLength]);
+  useEffect(() => { isSimulatingRef.current = isSimulating; }, [isSimulating]);
   useEffect(() => { updateGravity(gravity); }, [gravity, updateGravity]);
   useEffect(() => { updateMass1(mass1); }, [mass1, updateMass1]);
   useEffect(() => { updateMass2(mass2); }, [mass2, updateMass2]);
@@ -241,7 +243,7 @@ const PendulumCanvas = ({
   const loop = useCallback(() => {
     const s = engineRef.current;
     if (s.pivot) {
-      if (isSimulating) {
+      if (isSimulatingRef.current) {
         const dt = 0.2;
         const g = s.gravity * 0.15;
         const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
@@ -285,7 +287,7 @@ const PendulumCanvas = ({
 
       updatePendulumPositions();
 
-      if (isSimulating && !s.isDragging) {
+      if (isSimulatingRef.current && !s.isDragging) {
         s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y });
         if (s.history.length > trailLengthRef.current) {
           s.history.splice(0, s.history.length - trailLengthRef.current);
@@ -295,7 +297,7 @@ const PendulumCanvas = ({
     }
     updateAudio(s);
     render(s, s.mode, trailLengthRef.current);
-  }, [engineRef, isSimulating, updatePendulumPositions, updateAudio, render]);
+  }, [engineRef, updatePendulumPositions, updateAudio, render]);
 
   useEffect(() => {
     const handleResize = () => {

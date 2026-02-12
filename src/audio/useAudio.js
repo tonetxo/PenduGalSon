@@ -1,8 +1,20 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
   const audioCtxRef = useRef(null);
   const nodesRef = useRef(null);
+
+  // Usar refs para valores que cambian frecuentemente,
+  // así updateAudio non se recrea e o loop de animación non se reinicia
+  const isMutedRef = useRef(isMuted);
+  const isSimulatingRef = useRef(isSimulating);
+  const volume1Ref = useRef(volume1);
+  const volume2Ref = useRef(volume2);
+
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isSimulatingRef.current = isSimulating; }, [isSimulating]);
+  useEffect(() => { volume1Ref.current = volume1; }, [volume1]);
+  useEffect(() => { volume2Ref.current = volume2; }, [volume2]);
 
   const initAudio = useCallback(async () => {
     if (audioCtxRef.current) {
@@ -69,7 +81,7 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     const now = ctx.currentTime;
 
     const { pendulum1, pendulum2, pivot } = state;
-    if (isMuted || !isSimulating || !pivot || !pendulum1 || !pendulum2) {
+    if (isMutedRef.current || !isSimulatingRef.current || !pivot || !pendulum1 || !pendulum2) {
       bass.gain.gain.setTargetAtTime(0, now, 0.05);
       lead.gain.gain.setTargetAtTime(0, now, 0.05);
       leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.05);
@@ -96,7 +108,7 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     if (Number.isFinite(freqBass) && freqBass > 20) {
       bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
     }
-    const vol1Multiplier = volume1 / 100;
+    const vol1Multiplier = volume1Ref.current / 100;
     bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol * vol1Multiplier, now, 0.1);
 
     // Delay baseado na amplitude do ángulo
@@ -110,11 +122,11 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
       leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05);
     }
 
-    const vol2Multiplier = volume2 / 100;
+    const vol2Multiplier = volume2Ref.current / 100;
     const volL = dy2 * lead.baseVol * vol2Multiplier;
     lead.gain.gain.setTargetAtTime(volL, now, 0.1);
     leadHarmonic.gain.gain.setTargetAtTime(volL * 0.4, now, 0.1);
-  }, [isMuted, isSimulating, volume1, volume2]);
+  }, []);
 
   return { initAudio, updateAudio };
 };
