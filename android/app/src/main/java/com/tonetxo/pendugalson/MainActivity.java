@@ -17,28 +17,13 @@ public class MainActivity extends BridgeActivity {
         // 1. Deixar que BridgeActivity (Capacitor) configure o seu tema e layout primeiro
         super.onCreate(savedInstanceState);
 
-        // 2. Aplicar EdgeToEdge DESPOIS para sobreescribir o tema de Capacitor
+        // 2. Aplicar EdgeToEdge de forma moderna.
+        // Isto encárgase de facer as barras transparentes e configurar o decor fits.
         EdgeToEdge.enable(this);
 
-        // 3. En Android < 15, forzar barras do sistema transparentes explicitamente
-        Window window = getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window, false);
-        if (Build.VERSION.SDK_INT < 35) {
-            window.setStatusBarColor(Color.TRANSPARENT);
-            window.setNavigationBarColor(Color.TRANSPARENT);
-        }
-
-        // 4. Asegurar iconos escuros sobre fondo branco
-        androidx.core.view.WindowInsetsControllerCompat controller = androidx.core.view.WindowCompat.getInsetsController(window, window.getDecorView());
-        controller.setAppearanceLightStatusBars(true);
-        controller.setAppearanceLightNavigationBars(true);
-
-        // 5. Forza a ocultar a ActionBar se existe
+        // 3. Forza a ocultar a ActionBar se existe (redundante co tema pero seguro)
         if (getActionBar() != null) {
             getActionBar().hide();
-        }
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().hide();
         }
     }
 }
