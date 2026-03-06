@@ -23,6 +23,10 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     lastPinchDist: 0,
     view: { x: 0, y: 0, scale: 1 },
     dpr: 1,
+    snapAngle1: null,
+    snapLength1: null,
+    snapAngle2: null,
+    snapLength2: null,
     ...initialState
   });
 

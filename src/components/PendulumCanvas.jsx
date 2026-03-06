@@ -17,7 +17,9 @@ const PendulumCanvas = ({
   volume1,
   volume2,
   snapEnabled,
-  setSnapEnabled
+  setSnapEnabled,
+  snapAnglesEnabled,
+  setSnapAnglesEnabled
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -185,7 +187,7 @@ const PendulumCanvas = ({
       return;
     }
 
-    // APLICAR SNAP TO GRID
+    // APLICAR SNAP TO GRID (posiciones)
     if (snapEnabled) {
       const gridSize = 50;
       worldPos.x = Math.round(worldPos.x / gridSize) * gridSize;
@@ -194,23 +196,69 @@ const PendulumCanvas = ({
 
     if (s.dragTarget === 'pivot') {
       s.pivot = worldPos;
+      s.snapAngle1 = null;
+      s.snapLength1 = null;
+      s.snapAngle2 = null;
+      s.snapLength2 = null;
     } else if (s.dragTarget === 'p1') {
       const dx = worldPos.x - s.pivot.x;
       const dy = worldPos.y - s.pivot.y;
+      
       s.pendulum1.length = Math.max(20, Math.sqrt(dx * dx + dy * dy));
       s.pendulum1.angle = Math.atan2(dx, dy);
       s.pendulum1.velocity = 0;
+      
+      // Snap de ángulos y longitudes (solo en modo estático)
+      if (snapAnglesEnabled && !isSimulatingRef.current) {
+        const length = s.pendulum1.length;
+        const snapLength = Math.round(length / 50) * 50;
+        s.pendulum1.length = Math.max(50, snapLength);
+        
+        const angleFromVertical = s.pendulum1.angle;
+        const snapAngle = Math.round(angleFromVertical / (Math.PI / 12)) * (Math.PI / 12);
+        s.pendulum1.angle = snapAngle;
+        
+        s.snapLength1 = s.pendulum1.length;
+        s.snapAngle1 = Math.round(((Math.PI / 2 - snapAngle) * 180) / Math.PI);
+        
+        console.log('📐 P1 ANGLE SNAP:', 'L=' + s.snapLength1, 'A=' + s.snapAngle1 + '°');
+      } else {
+        s.snapAngle1 = null;
+        s.snapLength1 = null;
+      }
+      
+      console.log('🖱️ DRAG P1:', 'snapGrid=' + snapEnabled, 'snapAngles=' + snapAnglesEnabled, 'sim=' + isSimulatingRef.current);
     } else if (s.dragTarget === 'p2') {
       const dx = worldPos.x - s.pendulum1.x;
       const dy = worldPos.y - s.pendulum1.y;
+      
       s.pendulum2.length = Math.max(10, Math.sqrt(dx * dx + dy * dy));
       s.pendulum2.angle = Math.atan2(dx, dy);
       s.pendulum2.velocity = 0;
+      
+      // Snap de ángulos y longitudes (solo en modo estático)
+      if (snapAnglesEnabled && !isSimulatingRef.current) {
+        const length = s.pendulum2.length;
+        const snapLength = Math.round(length / 50) * 50;
+        s.pendulum2.length = Math.max(50, snapLength);
+        
+        const angleFromVertical = s.pendulum2.angle;
+        const snapAngle = Math.round(angleFromVertical / (Math.PI / 12)) * (Math.PI / 12);
+        s.pendulum2.angle = snapAngle;
+        
+        s.snapLength2 = s.pendulum2.length;
+        s.snapAngle2 = Math.round(((Math.PI / 2 - snapAngle) * 180) / Math.PI);
+        
+        console.log('📐 P2 ANGLE SNAP:', 'L=' + s.snapLength2, 'A=' + s.snapAngle2 + '°');
+      } else {
+        s.snapAngle2 = null;
+        s.snapLength2 = null;
+      }
     }
 
     updatePendulumPositions();
     s.history = [];
-  }, [engineRef, getScreenPos, toWorld, findTarget, updatePendulumPositions]);
+  }, [engineRef, getScreenPos, toWorld, findTarget, updatePendulumPositions, snapEnabled, snapAnglesEnabled]);
 
   const handleEnd = useCallback(() => {
     const s = engineRef.current;
@@ -296,8 +344,8 @@ const PendulumCanvas = ({
 
     }
     updateAudio(s);
-    render(s, s.mode, trailLengthRef.current);
-  }, [engineRef, updatePendulumPositions, updateAudio, render]);
+    render(s, s.mode, trailLengthRef.current, snapAnglesEnabled, isSimulatingRef.current);
+  }, [engineRef, updatePendulumPositions, updateAudio, render, snapAnglesEnabled]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -361,17 +409,30 @@ const PendulumCanvas = ({
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
 
-        {/* Botón de Snap to Grid */}
+        {/* Botón de Snap to Grid - MORADO */}
         <button
           onClick={() => setSnapEnabled(!snapEnabled)}
-          className={`absolute top-4 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapEnabled ? 'bg-blue-600 text-white border-blue-700 shadow-blue-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-blue-600'}`}
-          title={snapEnabled ? "Desactivar Axuste a Cadrícula" : "Activar Axuste a Cadrícula"}
+          className={`absolute top-4 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapEnabled ? 'bg-purple-600 text-white border-purple-700 shadow-purple-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-purple-600'}`}
+          title={snapEnabled ? "Desactivar Snap a Cadrícula" : "Activar Snap a Cadrícula"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12.5 5h7c.276 0 .5.224.5.5v7c0 .276-.224.5-.5.5h-7a.5.5 0 0 1-.5-.5v-7c0-.276.224-.5.5-.5Z"></path>
-            <path d="M12.5 13h7c.276 0 .5.224.5.5v3.5c0 .276-.224.5-.5.5h-7a.5.5 0 0 1-.5-.5v-3.5c0-.276.224-.5.5-.5Z"></path>
-            <path d="M11 13H4a.5.5 0 0 1-.5-.5v-3.5c0-.276.224-.5.5-.5h7c.276 0 .5.224.5.5v3.5c0 .276-.224.5-.5.5Z"></path>
-            <path d="M11 5H4a.5.5 0 0 1-.5-.5v-1c0-.276.224-.5.5-.5h7c.276 0 .5.224.5.5v1c0 .276-.224.5-.5.5Z"></path>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="3" y1="15" x2="21" y2="15"></line>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+            <line x1="15" y1="3" x2="15" y2="21"></line>
+          </svg>
+        </button>
+
+        {/* Botón de Snap de Ángulos - AZUL */}
+        <button
+          onClick={() => setSnapAnglesEnabled(!snapAnglesEnabled)}
+          className={`absolute top-4 right-20 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapAnglesEnabled ? 'bg-blue-600 text-white border-blue-700 shadow-blue-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-blue-600'}`}
+          title={snapAnglesEnabled ? "Desactivar Snap de Ángulos" : "Activar Snap de Ángulos (15° y longitudes)"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
           </svg>
         </button>
 

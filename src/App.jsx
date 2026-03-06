@@ -18,6 +18,7 @@ const App = () => {
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [snapEnabled, setSnapEnabled] = useState(false);
+  const [snapAnglesEnabled, setSnapAnglesEnabled] = useState(false);
 
   return (
     <PhysicsProvider initialState={{ gravity, mass1, mass2, mode }} isSimulating={isSimulating}>
@@ -54,6 +55,8 @@ const App = () => {
             volume2={volume2}
             snapEnabled={snapEnabled}
             setSnapEnabled={setSnapEnabled}
+            snapAnglesEnabled={snapAnglesEnabled}
+            setSnapAnglesEnabled={setSnapAnglesEnabled}
           />
 
           <ControlPanel

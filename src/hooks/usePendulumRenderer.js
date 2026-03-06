@@ -86,24 +86,21 @@ export const usePendulumRenderer = (canvasRef, view) => {
   }, []);
 
   const drawGrid = useCallback((ctx, width, height, scale, offsetX, offsetY) => {
-    const gridSize = 50; // Double density
+    const gridSize = 50;
 
-    // Calculate visible world bounds
     const startX = Math.floor(-offsetX / scale / gridSize) * gridSize;
     const endX = Math.ceil((width - offsetX) / scale / gridSize) * gridSize;
     const startY = Math.floor(-offsetY / scale / gridSize) * gridSize;
     const endY = Math.ceil((height - offsetY) / scale / gridSize) * gridSize;
 
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; // More perceptible
-    ctx.lineWidth = 0.5 / scale; // Slightly thicker
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 0.5 / scale;
 
-    // Vertical lines
     for (let x = startX; x <= endX; x += gridSize) {
       ctx.moveTo(x, startY);
       ctx.lineTo(x, endY);
     }
-    // Horizontal lines
     for (let y = startY; y <= endY; y += gridSize) {
       ctx.moveTo(startX, y);
       ctx.lineTo(endX, y);
@@ -111,7 +108,59 @@ export const usePendulumRenderer = (canvasRef, view) => {
     ctx.stroke();
   }, []);
 
-  const render = useCallback((state, mode, trailLength) => {
+  const drawAngleIndicator = useCallback((ctx, origin, angle, color, scale) => {
+    const arcRadius = 50 / scale;
+    const labelRadius = 65 / scale;
+    const directionInCanvas = Math.PI / 2 - angle;
+    
+    ctx.beginPath();
+    if (directionInCanvas >= 0) {
+      ctx.arc(origin.x, origin.y, arcRadius, 0, directionInCanvas, false);
+    } else {
+      ctx.arc(origin.x, origin.y, arcRadius, 0, directionInCanvas, true);
+    }
+    ctx.strokeStyle = color + 'B3';
+    ctx.lineWidth = 2 / scale;
+    ctx.setLineDash([5 / scale, 3 / scale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    const angleDegrees = Math.round((directionInCanvas * 180) / Math.PI);
+    const midAngle = directionInCanvas / 2;
+    const labelX = origin.x + labelRadius * Math.cos(midAngle);
+    const labelY = origin.y + labelRadius * Math.sin(midAngle);
+    
+    ctx.font = `${12 / scale}px monospace`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${angleDegrees}°`, labelX, labelY);
+  }, []);
+
+  const drawLengthIndicator = useCallback((ctx, startX, startY, endX, endY, length, color, scale) => {
+    const midX = (startX + endX) / 2;
+    const midY = (startY + endY) / 2;
+    
+    ctx.beginPath();
+    ctx.arc(midX, midY, 3 / scale, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    
+    ctx.font = `${11 / scale}px monospace`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) {
+      const perpX = -dy / len;
+      const perpY = dx / len;
+      ctx.fillText(`${length} u`, midX + perpX * 15, midY + perpY * 15);
+    }
+  }, []);
+
+  const render = useCallback((state, mode, trailLength, snapAnglesEnabled, isSimulating) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -185,9 +234,24 @@ export const usePendulumRenderer = (canvasRef, view) => {
         const isP2Active = state.dragTarget === 'p2';
         drawMetallicBall(ctx, state.pendulum2, 10 + state.mass2 / 5, 'purple', scale, isP2Active);
       }
+      
+      // INDICADORES DE SNAP DE ÁNGULOS
+      if (snapAnglesEnabled && !isSimulating && state.snapAngle1 !== null && state.snapLength1 !== null) {
+        drawAngleIndicator(ctx, state.pivot, state.pendulum1.angle, '#3b82f6', scale);
+        drawLengthIndicator(ctx, state.pivot.x, state.pivot.y, 
+                            state.pendulum1.x, state.pendulum1.y, 
+                            state.snapLength1, '#3b82f6', scale);
+      }
+      
+      if (mode === 'compound' && snapAnglesEnabled && !isSimulating && state.snapAngle2 !== null && state.snapLength2 !== null) {
+        drawAngleIndicator(ctx, state.pendulum1, state.pendulum2.angle, '#9333ea', scale);
+        drawLengthIndicator(ctx, state.pendulum1.x, state.pendulum1.y, 
+                            state.pendulum2.x, state.pendulum2.y, 
+                            state.snapLength2, '#9333ea', scale);
+      }
     }
     ctx.restore();
-  }, [canvasRef, view, drawRingAnchor, drawMetallicBall, drawGrid]);
+  }, [canvasRef, view, drawRingAnchor, drawMetallicBall, drawGrid, drawAngleIndicator, drawLengthIndicator]);
 
   return { render };
 };
