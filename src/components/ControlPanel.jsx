@@ -87,15 +87,17 @@ const ControlPanel = ({
       className={`fixed bottom-[50px] left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none`}
       style={transformStyle}
     >
-      {/* Drag Handle Area - Absolute positioned to stick out */}
+      {/* Large grab handle at top - full width and easy to grab */}
       <div
-        className="absolute -top-12 left-0 right-0 h-12 flex items-end justify-center pb-3 md:hidden touch-none bg-gradient-to-t from-white/50 to-transparent"
+        className="h-14 flex flex-col items-center justify-center md:hidden cursor-grab active:cursor-grabbing bg-slate-50 rounded-t-3xl"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        style={{ touchAction: 'none' }}
       >
-        {/* Visual Pill */}
-        <div className="w-16 h-1.5 bg-blue-500/80 rounded-full shadow-sm backdrop-blur-sm" />
+        <div className="w-12 h-1 bg-slate-400 rounded-full mb-1" />
+        <span className="text-xs text-slate-400 font-medium select-none">arrastra</span>
       </div>
 
       <div className="px-6 pb-6 md:p-6 space-y-8 h-auto max-h-[80vh] md:max-h-none md:h-auto overflow-y-auto">
