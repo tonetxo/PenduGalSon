@@ -166,10 +166,31 @@ const PendulumCanvas = ({
         { x: e.touches[1].clientX, y: e.touches[1].clientY }
       );
       const ratio = d / s.lastPinchDist;
+      
+      // Calcular punto central del pellizco en coordenadas de pantalla
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      
       setView(prevView => {
-        const next = { ...prevView, scale: Math.max(0.2, Math.min(4, prevView.scale * ratio)) };
-        viewRef.current = next;
-        return next;
+        // Calcular punto en mundo antes del zoom
+        const rect = canvasRef.current.getBoundingClientRect();
+        const screenX = centerX - rect.left;
+        const screenY = centerY - rect.top;
+        const worldXBefore = (screenX - prevView.x) / prevView.scale;
+        const worldYBefore = (screenY - prevView.y) / prevView.scale;
+        
+        // Aplicar zoom
+        const newScale = Math.max(0.2, Math.min(4, prevView.scale * ratio));
+        
+        // Ajustar offset para mantener el punto central fijo
+        const newView = {
+          x: screenX - worldXBefore * newScale,
+          y: screenY - worldYBefore * newScale,
+          scale: newScale
+        };
+        
+        viewRef.current = newView;
+        return newView;
       });
       s.lastPinchDist = d;
       return;
