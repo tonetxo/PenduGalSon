@@ -18,14 +18,14 @@ const ControlPanel = ({
   showControls,
   setShowControls
 }) => {
-  const [panelPosition, setPanelPosition] = useState(0); // 0 = fully open, >0 = pixels hidden
+  const [panelPercentage, setPanelPercentage] = useState(0); // 0 = fully open, 100 = fully closed
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef(0);
-  const startPosition = useRef(0);
+  const startPercentage = useRef(0);
   const panelRef = useRef(null);
   const [panelHeight, setPanelHeight] = useState(500); // Default estimate
 
-  // Update panel height on mount and resize
+  // Update panel height on mount and when mode changes
   useEffect(() => {
     if (panelRef.current) {
       const updateHeight = () => {
@@ -35,19 +35,21 @@ const ControlPanel = ({
       window.addEventListener('resize', updateHeight);
       return () => window.removeEventListener('resize', updateHeight);
     }
-  }, []);
+  }, [mode]); // Re-calculate when mode changes
 
-  // Sync with showControls prop
+  // Sync with showControls prop only when explicitly changed externally
   useEffect(() => {
-    if (!showControls) {
-      setPanelPosition(panelHeight || 500);
+    if (!showControls && panelPercentage < 90) {
+      setPanelPercentage(100);
+    } else if (showControls && panelPercentage > 10) {
+      setPanelPercentage(0);
     }
-  }, [showControls, panelHeight]);
+  }, [showControls]); // Only when showControls changes externally
 
   const handleTouchStart = (e) => {
     setIsDragging(true);
     startY.current = e.touches[0].clientY;
-    startPosition.current = panelPosition;
+    startPercentage.current = panelPercentage;
   };
 
   const handleTouchMove = (e) => {
@@ -55,23 +57,27 @@ const ControlPanel = ({
     const y = e.touches[0].clientY;
     const delta = y - startY.current;
     
-    // New position = start position + delta (dragging down increases position)
-    const newPosition = Math.max(0, Math.min(panelHeight, startPosition.current + delta));
-    setPanelPosition(newPosition);
+    // Convert pixel delta to percentage (dragging down increases percentage)
+    const deltaPercentage = (delta / panelHeight) * 100;
+    const newPercentage = Math.max(0, Math.min(100, startPercentage.current + deltaPercentage));
+    setPanelPercentage(newPercentage);
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
     
     // Decide if panel should be considered "open" or "closed"
-    // Threshold: if less than 50% visible, it's closed
-    const isClosed = panelPosition > panelHeight / 2;
+    // Threshold: if more than 50% hidden, it's closed
+    const isClosed = panelPercentage > 50;
     setShowControls(!isClosed);
   };
 
+  // Calculate pixel position from percentage
+  const pixelPosition = (panelPercentage / 100) * panelHeight;
+
   // Calculate transform style
   const transformStyle = {
-    transform: `translateY(${panelPosition}px)`,
+    transform: `translateY(${pixelPosition}px)`,
     transition: isDragging ? 'none' : 'transform 300ms ease-out'
   };
 
