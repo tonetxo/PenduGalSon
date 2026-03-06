@@ -18,68 +18,67 @@ const ControlPanel = ({
   showControls,
   setShowControls
 }) => {
-  const [dragOffset, setDragOffset] = useState(0);
+  const [panelPosition, setPanelPosition] = useState(0); // 0 = fully open, >0 = pixels hidden
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef(0);
-  const currentY = useRef(0);
+  const startPosition = useRef(0);
+  const panelRef = useRef(null);
+  const [panelHeight, setPanelHeight] = useState(500); // Default estimate
 
-  // Reset drag offset when panel is toggled
+  // Update panel height on mount and resize
+  useEffect(() => {
+    if (panelRef.current) {
+      const updateHeight = () => {
+        setPanelHeight(panelRef.current.offsetHeight);
+      };
+      updateHeight();
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+  }, []);
+
+  // Sync with showControls prop
   useEffect(() => {
     if (!showControls) {
-      setDragOffset(0);
+      setPanelPosition(panelHeight || 500);
     }
-  }, [showControls]);
-
-  // Track visible state for drag calculations
-  const isClosed = !showControls;
+  }, [showControls, panelHeight]);
 
   const handleTouchStart = (e) => {
     setIsDragging(true);
     startY.current = e.touches[0].clientY;
+    startPosition.current = panelPosition;
   };
 
   const handleTouchMove = (e) => {
     if (!isDragging) return;
     const y = e.touches[0].clientY;
     const delta = y - startY.current;
-
-    // Logic:
-    // If OPEN: delta > 0 closes it (pushes down).
-    // If CLOSED: delta < 0 opens it (pulls up).
-
-    if (!isClosed && delta > 0) {
-      // Dragging down while open
-      setDragOffset(delta);
-    } else if (isClosed && delta < 0) {
-      // Dragging up while closed
-      setDragOffset(delta);
-    }
+    
+    // New position = start position + delta (dragging down increases position)
+    const newPosition = Math.max(0, Math.min(panelHeight, startPosition.current + delta));
+    setPanelPosition(newPosition);
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-
-    if (!isClosed) {
-      // Closing: if dragged down more than 100px
-      if (dragOffset > 100) setShowControls(false);
-    } else {
-      // Opening: if dragged up more than 100px (negative offset)
-      if (dragOffset < -100) setShowControls(true);
-    }
-
-    setDragOffset(0);
+    
+    // Decide if panel should be considered "open" or "closed"
+    // Threshold: if less than 50% visible, it's closed
+    const isClosed = panelPosition > panelHeight / 2;
+    setShowControls(!isClosed);
   };
 
-  // Calculate transform style based on state
-  // Open: translateY(offset px)  -> offset is positive
-  // Closed: translateY(calc(100% + offset px)) -> offset is negative
-  const transformStyle = isDragging
-    ? { transform: isClosed ? `translateY(calc(100% + ${dragOffset}px))` : `translateY(${dragOffset}px)` }
-    : undefined;
+  // Calculate transform style
+  const transformStyle = {
+    transform: `translateY(${panelPosition}px)`,
+    transition: isDragging ? 'none' : 'transform 300ms ease-out'
+  };
 
   return (
     <aside
-      className={`fixed bottom-[50px] left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none z-40 transition-transform ${isDragging ? 'duration-0' : 'duration-300'} ${showControls ? 'translate-y-0 md:translate-x-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none' : 'translate-y-full md:translate-x-0'}`}
+      ref={panelRef}
+      className={`fixed bottom-[50px] left-0 right-0 w-full md:w-72 md:static md:h-full bg-white border-t md:border-t-0 md:border-l rounded-t-3xl md:rounded-none z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none`}
       style={transformStyle}
     >
       {/* Drag Handle Area - Absolute positioned to stick out */}
