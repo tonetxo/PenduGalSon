@@ -1,0 +1,3 @@
+Versión 1.6.0
+
+Engadido snap de ángulos (cada 15°) e longitudes (cada 50 u) con indicadores visuais durante o arrastre. Zoom agora centra no punto de pellizco. Panel de control mellorado: pódese deixar en calquera posición, non só aberto/pechado. Corrixido colapso do panel ao cambiar modos. Área táctil ampliada para arrastrar máis doado.

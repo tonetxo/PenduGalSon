@@ -1,0 +1,3 @@
+Versión 1.7
+
+PenduGalSon xa é tamén un pequeno laboratorio de física. Novidades: unidades reais (m, kg, J) e gravidade da Terra, a Lúa, Marte e Xúpiter; amortecemento; paneis de enerxía, período e espazo de fases; botón Comparar para ver o caos con dous péndulos case iguais; novo modo Físico (vara ríxida); exportar datos a CSV; escalas musicais e notas nos extremos ou no centro; rastro en segundos; guía de uso e arranque máis limpo.
