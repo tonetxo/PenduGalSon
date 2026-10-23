@@ -12,6 +12,8 @@ const App = () => {
   const [damping, setDamping] = useState(0); // s⁻¹
   const [volume1, setVolume1] = useState(70);
   const [volume2, setVolume2] = useState(50);
+  const [escala, setEscala] = useState('libre');
+  const [disparo, setDisparo] = useState('continuo');
   const [trailLength, setTrailLength] = useState(200);
   const [mode, setMode] = useState('simple');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -56,6 +58,8 @@ const App = () => {
             damping={damping}
             volume1={volume1}
             volume2={volume2}
+            escala={escala}
+            disparo={disparo}
             snapEnabled={snapEnabled}
             setSnapEnabled={setSnapEnabled}
             snapAnglesEnabled={snapAnglesEnabled}
@@ -75,6 +79,10 @@ const App = () => {
             setVolume1={setVolume1}
             volume2={volume2}
             setVolume2={setVolume2}
+            escala={escala}
+            setEscala={setEscala}
+            disparo={disparo}
+            setDisparo={setDisparo}
             trailLength={trailLength}
             setTrailLength={setTrailLength}
             mode={mode}

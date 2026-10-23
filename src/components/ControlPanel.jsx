@@ -8,6 +8,34 @@ const GRAVIDADES = [
   { nome: 'Xúpiter', g: 24.79 },
 ];
 
+const ESCALAS = [
+  { id: 'libre', nome: 'Libre' },
+  { id: 'pentatonica', nome: 'Pentatónica' },
+  { id: 'maior', nome: 'Maior' },
+  { id: 'menor', nome: 'Menor' },
+];
+
+const DISPAROS = [
+  { id: 'continuo', nome: 'Continuo' },
+  { id: 'centro', nome: 'No centro' },
+  { id: 'extremos', nome: 'Nos extremos' },
+];
+
+// Fila de botóns para escoller unha opción
+const Opcions = ({ opcions, valor, setValor }) => (
+  <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+    {opcions.map(({ id, nome }) => (
+      <button
+        key={id}
+        onClick={() => setValor(id)}
+        className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg ${valor === id ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+      >
+        {nome}
+      </button>
+    ))}
+  </div>
+);
+
 const ControlPanel = ({
   gravity,
   setGravity,
@@ -21,6 +49,10 @@ const ControlPanel = ({
   setVolume1,
   volume2,
   setVolume2,
+  escala,
+  setEscala,
+  disparo,
+  setDisparo,
   trailLength,
   setTrailLength,
   mode,
@@ -276,6 +308,21 @@ const ControlPanel = ({
               </div>
             </>
           )}
+        </section>
+
+        <section className="space-y-3">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Son</label>
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold">Escala</span>
+            <Opcions opcions={ESCALAS} valor={escala} setValor={setEscala} />
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-xs font-bold">Notas</span>
+            <Opcions opcions={DISPAROS} valor={disparo} setValor={setDisparo} />
+            {disparo === 'centro' && (
+              <p className="text-[11px] text-slate-500">Dúas notas por período: escoita como cambia o ritmo coa gravidade ou a lonxitude.</p>
+            )}
+          </div>
         </section>
       </div>
     </aside>

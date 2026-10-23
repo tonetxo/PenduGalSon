@@ -1,6 +1,29 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { frecuencia, detectarEventos, alturaCentro } from './musica';
 
-export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
+// Separación mínima entre notas dun mesmo brazo, para que o caos non faga ruído
+const MIN_ENTRE_NOTAS_S = 0.06;
+
+// Nota pulsada curta: ataque rápido e caída exponencial
+function tocarNota(ctx, destino, freq, volume, tipo, duracion) {
+  if (!Number.isFinite(freq) || freq < 20 || volume <= 0) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = tipo;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(volume, t + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duracion);
+  osc.connect(gain);
+  gain.connect(destino);
+  osc.start(t);
+  osc.stop(t + duracion + 0.05);
+}
+
+// escala: 'libre' | 'pentatonica' | 'maior' | 'menor'
+// disparo: 'continuo' (son sostido) | 'centro' | 'extremos' (notas pulsadas)
+export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50, escala = 'libre', disparo = 'continuo') => {
   const audioCtxRef = useRef(null);
   const nodesRef = useRef(null);
 
@@ -10,11 +33,17 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
   const isSimulatingRef = useRef(isSimulating);
   const volume1Ref = useRef(volume1);
   const volume2Ref = useRef(volume2);
+  const escalaRef = useRef(escala);
+  const disparoRef = useRef(disparo);
+  // Estado anterior de cada brazo, para detectar os pasos polo centro e os extremos
+  const anteriorRef = useRef(null);
 
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { isSimulatingRef.current = isSimulating; }, [isSimulating]);
   useEffect(() => { volume1Ref.current = volume1; }, [volume1]);
   useEffect(() => { volume2Ref.current = volume2; }, [volume2]);
+  useEffect(() => { escalaRef.current = escala; }, [escala]);
+  useEffect(() => { disparoRef.current = disparo; }, [disparo]);
 
   const initAudio = useCallback(async () => {
     if (audioCtxRef.current) {
@@ -66,7 +95,7 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
       delay.connect(ctx.destination);
 
       audioCtxRef.current = ctx;
-      nodesRef.current = { bass, lead, leadHarmonic, delay, master, ctx };
+      nodesRef.current = { bass, lead, leadHarmonic, delay, master, filter, ctx };
 
       if (ctx.state === 'suspended') await ctx.resume();
     } catch (e) {
@@ -74,19 +103,74 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     }
   }, []);
 
+  // Modo de notas pulsadas: unha nota por brazo cada vez que pasa polo
+  // centro ou por un extremo. No centro a altura vai coa velocidade (a
+  // amplitude); nos extremos, co ángulo (esquerda grave, dereita aguda).
+  const dispararNotas = useCallback((state, escala, vol1, vol2, destino, ctx) => {
+    const { params } = state;
+    if (!params) return;
+    const brazos = [
+      {
+        id: 'p1', p: state.pendulum1, base: 65.4, oitavas: 3, tipo: 'triangle', volume: 0.6 * vol1, duracion: 1.2,
+        // A barra do péndulo físico oscila coma un simple de lonxitude 2L/3
+        L: params.modo === 'fisico' ? (2 * params.L1) / 3 : params.L1,
+      },
+    ];
+    if (params.modo === 'dobre') {
+      brazos.push({ id: 'p2', p: state.pendulum2, base: 261.6, oitavas: 4, tipo: 'sine', volume: 0.35 * vol2, duracion: 0.8, L: params.L2 });
+    }
+
+    const anterior = anteriorRef.current ?? {};
+    const agora = ctx.currentTime;
+    const seguinte = {};
+    for (const b of brazos) {
+      const actual = { θ: b.p.angle, ω: b.p.velocity, t: anterior[b.id]?.t ?? -Infinity };
+      const previo = anterior[b.id];
+      if (previo) {
+        const ev = detectarEventos(previo, actual);
+        const toca = disparoRef.current === 'centro' ? ev.centro : ev.extremo;
+        if (toca && agora - previo.t >= MIN_ENTRE_NOTAS_S) {
+          const x = disparoRef.current === 'centro'
+            ? alturaCentro(actual.ω, params.g, b.L)
+            : (Math.sin(actual.θ) + 1) / 2;
+          tocarNota(ctx, destino, frecuencia(b.base, x, b.oitavas, escala), b.volume, b.tipo, b.duracion);
+          actual.t = agora;
+        }
+      }
+      seguinte[b.id] = actual;
+    }
+    anteriorRef.current = seguinte;
+  }, []);
+
   const updateAudio = useCallback((state) => {
     if (!nodesRef.current) return;
 
-    const { bass, lead, leadHarmonic, delay, ctx } = nodesRef.current;
+    const { bass, lead, leadHarmonic, delay, filter, ctx } = nodesRef.current;
     const now = ctx.currentTime;
 
-    const { pendulum1, pendulum2, pivot } = state;
-    if (isMutedRef.current || !isSimulatingRef.current || !pivot || !pendulum1 || !pendulum2) {
+    const silenciar = () => {
       bass.gain.gain.setTargetAtTime(0, now, 0.05);
       lead.gain.gain.setTargetAtTime(0, now, 0.05);
       leadHarmonic.gain.gain.setTargetAtTime(0, now, 0.05);
+    };
+
+    const { pendulum1, pendulum2, pivot } = state;
+    if (isMutedRef.current || !isSimulatingRef.current || !pivot || !pendulum1 || !pendulum2) {
+      silenciar();
+      anteriorRef.current = null;
       return;
     }
+
+    const escala = escalaRef.current;
+    const vol1Multiplier = volume1Ref.current / 100;
+    const vol2Multiplier = volume2Ref.current / 100;
+
+    if (disparoRef.current !== 'continuo') {
+      silenciar();
+      dispararNotas(state, escala, vol1Multiplier, vol2Multiplier, filter, ctx);
+      return;
+    }
+    anteriorRef.current = null;
 
     // Usar ángulos e velocidades (independentes da escala/zoom)
     const p1Angle = Number.isFinite(pendulum1.angle) ? pendulum1.angle : 0;
@@ -104,12 +188,14 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     const dx2 = Math.sin(p2Angle);
     const dy2 = Math.min(1, p2Velocity / 22 + 0.2);
 
+    // Cunha escala, a altura salta de nota en nota en vez de esvarar
+    const glide = escala === 'libre' ? 0.1 : 0.015;
+
     // Bass: Frecuencia baseada no ángulo do péndulo 1
-    const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 1.5); // C2 a C5
+    const freqBass = frecuencia(65.4, (dx1 + 1) / 2, 3, escala); // C2 a C5
     if (Number.isFinite(freqBass) && freqBass > 20) {
-      bass.osc.frequency.setTargetAtTime(freqBass, now, 0.1);
+      bass.osc.frequency.setTargetAtTime(freqBass, now, glide);
     }
-    const vol1Multiplier = volume1Ref.current / 100;
     bass.gain.gain.setTargetAtTime(dy1 * bass.baseVol * vol1Multiplier, now, 0.1);
 
     // Delay baseado na amplitude do ángulo
@@ -117,17 +203,16 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     delay.delayTime.setTargetAtTime(dTime, now, 0.1);
 
     // Lead: Frecuencia baseada no ángulo do péndulo 2
-    const freqLead = 261.6 * Math.pow(2, (dx2 + 1) * 2); // C4 a C8
+    const freqLead = frecuencia(261.6, (dx2 + 1) / 2, 4, escala); // C4 a C8
     if (Number.isFinite(freqLead) && freqLead > 20) {
-      lead.osc.frequency.setTargetAtTime(freqLead, now, 0.05);
-      leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, 0.05);
+      lead.osc.frequency.setTargetAtTime(freqLead, now, Math.min(glide, 0.05));
+      leadHarmonic.osc.frequency.setTargetAtTime(freqLead * 1.5, now, Math.min(glide, 0.05));
     }
 
-    const vol2Multiplier = volume2Ref.current / 100;
     const volL = dy2 * lead.baseVol * vol2Multiplier;
     lead.gain.gain.setTargetAtTime(volL, now, 0.1);
     leadHarmonic.gain.gain.setTargetAtTime(volL * 0.4, now, 0.1);
-  }, []);
+  }, [dispararNotas]);
 
   return { initAudio, updateAudio };
 };

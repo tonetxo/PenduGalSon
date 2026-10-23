@@ -50,6 +50,8 @@ const PendulumCanvas = ({
   damping,
   volume1,
   volume2,
+  escala,
+  disparo,
   snapEnabled,
   setSnapEnabled,
   snapAnglesEnabled,
@@ -79,7 +81,7 @@ const PendulumCanvas = ({
     updateDamping,
     updateMode
   } = usePhysics();
-  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2);
+  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2, escala, disparo);
   const { render } = usePendulumRenderer(canvasRef, viewRef);
 
   useEffect(() => { trailLengthRef.current = trailLength; }, [trailLength]);
