@@ -28,7 +28,7 @@ export function aCSV(rexistro) {
   const filas = rexistro.mostras.map((m) =>
     m.map((v, i) => (i === 0 ? v.toFixed(3) : v.toPrecision(8))).join(','),
   );
-  return '﻿' + [COLUMNAS.join(','), ...filas].join('\n') + '\n';
+  return '\uFEFF' + [COLUMNAS.join(','), ...filas].join('\n') + '\n';
 }
 
 // Nome do ficheiro cos parámetros do experimento, sen caracteres problemáticos
