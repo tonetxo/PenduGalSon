@@ -641,6 +641,18 @@ const PendulumCanvas = ({
                     <li>A <span className="font-bold">caída vertical</span> modula a intensidade da voz.</li>
                   </ul>
                 </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="font-bold text-slate-800 mb-2 text-center sm:text-left">Como usalo:</p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-sm">
+                    <li><span className="font-bold">Comezar:</span> a app abre cos axustes; preme ≡ para ocultalos e ver o lenzo (e outra vez para voltar).</li>
+                    <li><span className="font-bold">Crear:</span> toca o lenzo (pivote) e arrastra; ao soltar nace o péndulo e arranca.</li>
+                    <li><span className="font-bold">Recolocar:</span> arrastra o pivote ou as masas (pausa a simulación).</li>
+                    <li><span className="font-bold">Vista:</span> un dedo no fondo move; dous dedos fan zoom.</li>
+                    <li><span className="font-bold">Cabeceira:</span> ▶ pausa/retoma e ↻ reinicia. Os axustes (gravidade, masas, amortecemento, son, rastro) están baixo ≡.</li>
+                    <li><span className="font-bold">Modos:</span> Simple, Dobre (caótico, deixa rastro) e Físico (vara ríxida).</li>
+                    <li><span className="font-bold">Lenzo:</span> gráfica de datos, axuste á cuadrícula e aos ángulos, exportar CSV e, no dobre, Comparar: dous péndulos case iguais para ver o caos.</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="flex flex-col gap-4">
