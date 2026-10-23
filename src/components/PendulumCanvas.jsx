@@ -2,10 +2,30 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
 import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
-import { avanzar, PX_POR_METRO } from '../physics/pendulum';
+import EnergyPanel from './EnergyPanel';
+import { avanzar, enerxia, novoMedidor, rexistrarPaso, PX_POR_METRO } from '../physics/pendulum';
 
 // Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
 const MAX_DT_FOTOGRAMA = 0.05;
+
+// Parámetros físicos (SI) a partir do estado do canvas (píxeles)
+const paramsDe = (s) => ({
+  // Sen segundo brazo (por exemplo, a medio crear) compórtase coma un simple
+  modo: s.mode === 'dobre' && s.pendulum2.length > 0 ? 'dobre' : 'simple',
+  L1: s.pendulum1.length / PX_POR_METRO,
+  L2: s.pendulum2.length / PX_POR_METRO,
+  m1: s.mass1,
+  m2: s.mass2,
+  g: s.gravity,
+  b: s.damping ?? 0,
+});
+
+const estadoDe = (s) => ({
+  θ1: s.pendulum1.angle,
+  ω1: s.pendulum1.velocity,
+  θ2: s.pendulum2.angle,
+  ω2: s.pendulum2.velocity,
+});
 
 const PendulumCanvas = ({
   isSimulating,
@@ -18,6 +38,7 @@ const PendulumCanvas = ({
   gravity,
   mass1,
   mass2,
+  damping,
   volume1,
   volume2,
   snapEnabled,
@@ -40,6 +61,7 @@ const PendulumCanvas = ({
     updateGravity,
     updateMass1,
     updateMass2,
+    updateDamping,
     updateMode
   } = usePhysics();
   const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2);
@@ -50,6 +72,7 @@ const PendulumCanvas = ({
   useEffect(() => { updateGravity(gravity); }, [gravity, updateGravity]);
   useEffect(() => { updateMass1(mass1); }, [mass1, updateMass1]);
   useEffect(() => { updateMass2(mass2); }, [mass2, updateMass2]);
+  useEffect(() => { updateDamping(damping); }, [damping, updateDamping]);
   useEffect(() => { updateMode(mode); }, [mode, updateMode]);
 
   // Asegurar que o audio se inicializa cando se empeza a simular
@@ -86,7 +109,7 @@ const PendulumCanvas = ({
       { id: 'p1', pos: s.pendulum1, dist: getDist(worldPos, s.pendulum1) },
     ];
 
-    if (mode === 'compound' && s.pendulum2.length > 0) {
+    if (mode === 'dobre' && s.pendulum2.length > 0) {
       candidates.push({ id: 'p2', pos: s.pendulum2, dist: getDist(worldPos, s.pendulum2) });
     }
 
@@ -324,27 +347,26 @@ const PendulumCanvas = ({
     if (s.pivot) {
       const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
 
-      if (isSimulatingRef.current && !isDraggingAny) {
-        // Sen segundo brazo (por exemplo, a medio crear) compórtase coma un simple
-        const modo = s.mode === 'compound' && s.pendulum2.length > 0 ? 'dobre' : 'simple';
-        const params = {
-          modo,
-          L1: s.pendulum1.length / PX_POR_METRO,
-          L2: s.pendulum2.length / PX_POR_METRO,
-          m1: s.mass1,
-          m2: s.mass2,
-          g: s.gravity,
-          b: s.damping ?? 0,
-        };
-        const estado = {
-          θ1: s.pendulum1.angle,
-          ω1: s.pendulum1.velocity,
-          θ2: s.pendulum2.angle,
-          ω2: s.pendulum2.velocity,
-        };
+      const params = paramsDe(s);
 
+      // O período mídese de novo se cambia a lonxitude, a gravidade ou o modo
+      const claveMedida = `${params.modo}|${params.L1}|${params.g}`;
+      if (!s.medidor || s.medidor.clave !== claveMedida || isDraggingAny) {
+        s.medidor = { ...novoMedidor(), clave: claveMedida };
+      }
+
+      if (isSimulatingRef.current && !isDraggingAny) {
+        const estado = estadoDe(s);
         const res = avanzar(estado, params, dtReal, accumulatorRef.current);
+        // Tempo simulado exacto: o consumido polos subpasos neste fotograma
+        const tAnterior = s.tempo;
+        s.tempo += dtReal + accumulatorRef.current - res.acumulado;
         accumulatorRef.current = res.acumulado;
+
+        s.medidor = {
+          ...rexistrarPaso(s.medidor, estado.θ1, res.estado.θ1, tAnterior, s.tempo),
+          clave: claveMedida,
+        };
 
         s.pendulum1.angle = res.estado.θ1;
         s.pendulum1.velocity = res.estado.ω1;
@@ -353,6 +375,9 @@ const PendulumCanvas = ({
       } else {
         accumulatorRef.current = 0;
       }
+
+      s.params = params;
+      s.enerxia = enerxia(estadoDe(s), params);
 
       updatePendulumPositions();
 
@@ -430,11 +455,13 @@ const PendulumCanvas = ({
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
 
+        <EnergyPanel />
+
         {/* Botón de Snap to Grid - MORADO */}
         <button
           onClick={() => setSnapEnabled(!snapEnabled)}
           className={`absolute top-4 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapEnabled ? 'bg-purple-600 text-white border-purple-700 shadow-purple-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-purple-600'}`}
-          title={snapEnabled ? "Desactivar Snap a Cadrícula" : "Activar Snap a Cadrícula"}
+          title={snapEnabled ? "Desactivar axuste á cuadrícula" : "Activar axuste á cuadrícula"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -449,7 +476,7 @@ const PendulumCanvas = ({
         <button
           onClick={() => setSnapAnglesEnabled(!snapAnglesEnabled)}
           className={`absolute top-4 right-20 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapAnglesEnabled ? 'bg-blue-600 text-white border-blue-700 shadow-blue-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-blue-600'}`}
-          title={snapAnglesEnabled ? "Desactivar Snap de Ángulos" : "Activar Snap de Ángulos (15° y longitudes)"}
+          title={snapAnglesEnabled ? "Desactivar axuste de ángulos" : "Activar axuste de ángulos (15° e lonxitudes de 0,25 m)"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"></circle>

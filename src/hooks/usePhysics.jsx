@@ -24,6 +24,9 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     view: { x: 0, y: 0, scale: 1 },
     dpr: 1,
     damping: 0,
+    tempo: 0, // s simulados
+    enerxia: null,
+    medidor: null,
     snapAngle1: null,
     snapLength1: null,
     snapAngle2: null,
@@ -53,16 +56,20 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     s.dragStep = 0;
     s.isDragging = false;
     s.dragTarget = null;
+    s.tempo = 0;
+    s.enerxia = null;
+    s.medidor = null;
   }, []);
 
   const updateGravity = useCallback((g) => { engineRef.current.gravity = g; }, []);
   const updateMass1 = useCallback((m) => { engineRef.current.mass1 = m; }, []);
   const updateMass2 = useCallback((m) => { engineRef.current.mass2 = m; }, []);
+  const updateDamping = useCallback((b) => { engineRef.current.damping = b; }, []);
   const updateMode = useCallback((m) => {
     const s = engineRef.current;
     s.mode = m;
-    // Se cambiamos a modo compound cun péndulo existente, inicializar pendulum2
-    if (m === 'compound' && s.pivot && s.pendulum2.length === 0) {
+    // Se cambiamos a modo dobre cun péndulo existente, inicializar pendulum2
+    if (m === 'dobre' && s.pivot && s.pendulum2.length === 0) {
       s.pendulum2.length = 100;
       s.pendulum2.angle = s.pendulum1.angle;
       s.pendulum2.velocity = 0;
@@ -80,6 +87,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     updateGravity,
     updateMass1,
     updateMass2,
+    updateDamping,
     updateMode
   }), [
     updatePendulumPositions,
@@ -88,6 +96,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     updateGravity,
     updateMass1,
     updateMass2,
+    updateDamping,
     updateMode
   ]);
 

@@ -124,3 +124,39 @@ export function avanzar(estado, params, dt, acumulado = 0, subpaso = SUBPASO) {
   }
   return { estado: s, acumulado: resto };
 }
+
+// Período teórico para oscilacións pequenas: T = 2π√(L/g). null se g ≤ 0.
+export function periodoTeorico(L, g) {
+  return g > 0 ? 2 * Math.PI * Math.sqrt(L / g) : null;
+}
+
+// Medidor do período a partir dos pasos do ángulo polo centro (θ = 0).
+// Un período é o tempo entre dous cruces no mesmo sentido, así que funciona
+// tanto se oscila coma se dá voltas completas.
+export function novoMedidor() {
+  return { ultimoCruce: { subindo: null, baixando: null }, periodo: null };
+}
+
+// Ángulo reducido a (-π, π]: se dá voltas, o centro tamén está en 2π, 4π…
+const reducir = (θ) => Math.atan2(Math.sin(θ), Math.cos(θ));
+
+export function rexistrarPaso(medidor, θAnterior, θ, tAnterior, t) {
+  const a = reducir(θAnterior);
+  const b = reducir(θ);
+  // Un salto maior ca π é o paso polo punto máis alto (±π), non polo centro
+  if (Math.abs(b - a) > Math.PI) return medidor;
+
+  const subindo = a < 0 && b >= 0;
+  const baixando = a > 0 && b <= 0;
+  if (!subindo && !baixando) return medidor;
+
+  // Interpolación lineal do instante no que θ pasa por 0
+  const tCruce = tAnterior + (t - tAnterior) * (a / (a - b));
+  const sentido = subindo ? 'subindo' : 'baixando';
+  const previo = medidor.ultimoCruce[sentido];
+
+  return {
+    ultimoCruce: { ...medidor.ultimoCruce, [sentido]: tCruce },
+    periodo: previo === null ? medidor.periodo : tCruce - previo,
+  };
+}

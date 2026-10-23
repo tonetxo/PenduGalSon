@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { paso, enerxia, avanzar, derivadasSimple, derivadasDobre } from './pendulum.js';
+import {
+  paso, enerxia, avanzar, derivadasSimple, derivadasDobre,
+  periodoTeorico, novoMedidor, rexistrarPaso,
+} from './pendulum.js';
 
 const DT = 0.001;
 const G = 9.81;
@@ -146,5 +149,74 @@ describe('avanzar con subpasos fixos', () => {
     const { estado } = avanzar(inicial, dobre, 300);
     expect(Number.isFinite(estado.θ1) && Number.isFinite(estado.θ2)).toBe(true);
     expect(Math.abs(enerxia(estado, dobre).total - E0) / E0).toBeLessThan(1e-4);
+  });
+});
+
+describe('medidor de período (o que amosa a interface)', () => {
+  // Simula a 60 fps, coma a app, e devolve o último período medido
+  function medirComoNaApp(θ0, params, segundos = 20) {
+    let s = { θ1: θ0, ω1: 0, θ2: 0, ω2: 0 };
+    let medidor = novoMedidor();
+    let acumulado = 0;
+    let t = 0;
+    for (let i = 0; i < segundos * 60; i++) {
+      const res = avanzar(s, params, 1 / 60, acumulado);
+      const tNovo = t + 1 / 60 + acumulado - res.acumulado;
+      medidor = rexistrarPaso(medidor, s.θ1, res.estado.θ1, t, tNovo);
+      ({ estado: s, acumulado } = res);
+      t = tNovo;
+    }
+    return medidor.periodo;
+  }
+
+  it('periodoTeorico dá 2π√(L/g) e null sen gravidade', () => {
+    expect(periodoTeorico(1, 9.81)).toBeCloseTo(2.00607, 4);
+    expect(periodoTeorico(1, 0)).toBeNull();
+  });
+
+  it('con 5° mide o mesmo có teórico (erro < 0,5 %)', () => {
+    const T0 = periodoTeorico(1, G);
+    expect(Math.abs(medirComoNaApp(grados(5), simple) - T0) / T0).toBeLessThan(0.005);
+  });
+
+  it('con 90° mide ≈18 % máis có teórico', () => {
+    const ratio = medirComoNaApp(grados(90), simple) / periodoTeorico(1, G);
+    expect(ratio).toBeGreaterThan(1.17);
+    expect(ratio).toBeLessThan(1.19);
+  });
+
+  it('na Lúa o período é máis longo', () => {
+    const lua = { ...simple, g: 1.62 };
+    const T = medirComoNaApp(grados(5), lua, 30);
+    expect(Math.abs(T - periodoTeorico(1, 1.62)) / T).toBeLessThan(0.005);
+  });
+
+  it('tamén mide o período se o péndulo dá voltas completas', () => {
+    // Na parte de abaixo con ω0 = 8 rad/s supera o punto máis alto (fai falta 2√(g/L) ≈ 6,3)
+    let s = { θ1: 0.3, ω1: 8, θ2: 0, ω2: 0 };
+    let medidor = novoMedidor();
+    let t = 0;
+    for (let i = 0; i < 10000; i++) {
+      const seguinte = paso(s, simple, DT);
+      medidor = rexistrarPaso(medidor, s.θ1, seguinte.θ1, t, t + DT);
+      s = seguinte;
+      t += DT;
+    }
+    expect(s.θ1).toBeGreaterThan(4 * Math.PI); // deu varias voltas
+    // Tempo dunha volta enteira calculado á parte, integrando dt = dθ/ω
+    let volta = 0;
+    let p = { θ1: 0, ω1: Math.sqrt(8 ** 2 + 2 * G * (1 - Math.cos(0.3))), θ2: 0, ω2: 0 };
+    while (p.θ1 < 2 * Math.PI) { p = paso(p, simple, DT); volta += DT; }
+    expect(medidor.periodo).toBeCloseTo(volta, 2);
+  });
+
+  it('non mide nada mentres non hai dous cruces no mesmo sentido', () => {
+    let m = novoMedidor();
+    m = rexistrarPaso(m, -0.1, 0.1, 0, 1);
+    expect(m.periodo).toBeNull();
+    m = rexistrarPaso(m, 0.1, -0.1, 1, 2);
+    expect(m.periodo).toBeNull();
+    m = rexistrarPaso(m, -0.1, 0.1, 2, 3);
+    expect(m.periodo).toBeCloseTo(2, 10);
   });
 });

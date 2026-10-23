@@ -1,5 +1,9 @@
 import { useCallback } from 'react';
 import { PX_POR_METRO } from '../physics/pendulum';
+import { fmt } from '../utils/fmt';
+
+// Radio da bóla en px segundo a masa en kg (o volume crece coa masa)
+const radioBola = (masa) => 8 + 6 * Math.cbrt(masa);
 
 export const usePendulumRenderer = (canvasRef, view) => {
   const drawRingAnchor = useCallback((ctx, p, r, scale, active) => {
@@ -157,7 +161,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
     if (len > 0) {
       const perpX = -dy / len;
       const perpY = dx / len;
-      ctx.fillText(`${(length / PX_POR_METRO).toFixed(2)} m`, midX + perpX * 15, midY + perpY * 15);
+      ctx.fillText(`${fmt(length / PX_POR_METRO)} m`, midX + perpX * 15, midY + perpY * 15);
     }
   }, []);
 
@@ -179,7 +183,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
     if (state.pivot) {
       // ESTELA SUAVE
-      if (mode === 'compound' && state.history.length > 1) {
+      if (mode === 'dobre' && state.history.length > 1) {
         ctx.beginPath();
         // Gradiente para la estela (desvanece al final)
         const gradient = ctx.createLinearGradient(
@@ -218,7 +222,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
       ctx.beginPath();
       ctx.moveTo(state.pivot.x, state.pivot.y);
       ctx.lineTo(state.pendulum1.x, state.pendulum1.y);
-      if (mode === 'compound' && state.pendulum2.length > 0) {
+      if (mode === 'dobre' && state.pendulum2.length > 0) {
         ctx.lineTo(state.pendulum2.x, state.pendulum2.y);
       }
       ctx.stroke();
@@ -229,11 +233,11 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
       // MASAS 3D (Metallic Spheres)
       const isP1Active = state.dragTarget === 'p1';
-      drawMetallicBall(ctx, state.pendulum1, 10 + state.mass1 / 5, 'blue', scale, isP1Active);
+      drawMetallicBall(ctx, state.pendulum1, radioBola(state.mass1), 'blue', scale, isP1Active);
 
-      if (mode === 'compound' && state.pendulum2.length > 0) {
+      if (mode === 'dobre' && state.pendulum2.length > 0) {
         const isP2Active = state.dragTarget === 'p2';
-        drawMetallicBall(ctx, state.pendulum2, 10 + state.mass2 / 5, 'purple', scale, isP2Active);
+        drawMetallicBall(ctx, state.pendulum2, radioBola(state.mass2), 'purple', scale, isP2Active);
       }
       
       // INDICADORES DE SNAP DE ÁNGULOS
@@ -244,7 +248,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
                             state.snapLength1, '#3b82f6', scale);
       }
       
-      if (mode === 'compound' && snapAnglesEnabled && !isSimulating && state.snapAngle2 !== null && state.snapLength2 !== null) {
+      if (mode === 'dobre' && snapAnglesEnabled && !isSimulating && state.snapAngle2 !== null && state.snapLength2 !== null) {
         drawAngleIndicator(ctx, state.pendulum1, state.pendulum2.angle, '#9333ea', scale);
         drawLengthIndicator(ctx, state.pendulum1.x, state.pendulum1.y, 
                             state.pendulum2.x, state.pendulum2.y, 

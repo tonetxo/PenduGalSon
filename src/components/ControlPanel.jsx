@@ -1,4 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { fmt } from '../utils/fmt';
+
+const GRAVIDADES = [
+  { nome: 'Terra', g: 9.81 },
+  { nome: 'Lúa', g: 1.62 },
+  { nome: 'Marte', g: 3.71 },
+  { nome: 'Xúpiter', g: 24.79 },
+];
 
 const ControlPanel = ({
   gravity,
@@ -7,6 +15,8 @@ const ControlPanel = ({
   setMass1,
   mass2,
   setMass2,
+  damping,
+  setDamping,
   volume1,
   setVolume1,
   volume2,
@@ -111,8 +121,8 @@ const ControlPanel = ({
               Simple
             </button>
             <button
-              onClick={() => setMode('compound')}
-              className={`flex-1 py-2 text-sm font-bold rounded-lg ${mode === 'compound' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}
+              onClick={() => setMode('dobre')}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg ${mode === 'dobre' ? 'bg-white shadow text-purple-600' : 'text-slate-500'}`}
             >
               Dobre
             </button>
@@ -123,13 +133,24 @@ const ControlPanel = ({
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-bold">
               <span>Gravidade</span>
-              <span>{gravity}</span>
+              <span>{fmt(gravity)} m/s²</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {GRAVIDADES.map(({ nome, g }) => (
+                <button
+                  key={nome}
+                  onClick={() => setGravity(g)}
+                  className={`py-1 text-[11px] font-bold rounded-lg ${gravity === g ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+                >
+                  {nome}
+                </button>
+              ))}
             </div>
             <input
               type="range"
               min="0"
               max="25"
-              step="0.5"
+              step="0.01"
               value={gravity}
               onChange={e => setGravity(Number(e.target.value))}
               className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-blue-600 cursor-pointer"
@@ -138,16 +159,33 @@ const ControlPanel = ({
 
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-bold">
-              <span>Masa Azul</span>
-              <span>{mass1}</span>
+              <span>Masa azul</span>
+              <span>{fmt(mass1, 1)} kg</span>
             </div>
             <input
               type="range"
-              min="5"
-              max="100"
+              min="0.1"
+              max="10"
+              step="0.1"
               value={mass1}
               onChange={e => setMass1(Number(e.target.value))}
               className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-blue-600 cursor-pointer"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-bold">
+              <span>Amortecemento <span className="font-normal text-slate-400">b</span></span>
+              <span>{damping === 0 ? 'sen rozamento' : `${fmt(damping)} s⁻¹`}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={damping}
+              onChange={e => setDamping(Number(e.target.value))}
+              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-slate-600 cursor-pointer"
             />
           </div>
 
@@ -172,17 +210,18 @@ const ControlPanel = ({
             />
           </div>
 
-          {mode === 'compound' && (
+          {mode === 'dobre' && (
             <>
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-bold">
-                  <span>Masa Púrpura</span>
-                  <span>{mass2}</span>
+                  <span>Masa púrpura</span>
+                  <span>{fmt(mass2, 1)} kg</span>
                 </div>
                 <input
                   type="range"
-                  min="5"
-                  max="100"
+                  min="0.1"
+                  max="10"
+                  step="0.1"
                   value={mass2}
                   onChange={e => setMass2(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-purple-600 cursor-pointer"
