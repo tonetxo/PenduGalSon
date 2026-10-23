@@ -2,6 +2,10 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
 import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
+import { avanzar, PX_POR_METRO } from '../physics/pendulum';
+
+// Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
+const MAX_DT_FOTOGRAMA = 0.05;
 
 const PendulumCanvas = ({
   isSimulating,
@@ -27,6 +31,8 @@ const PendulumCanvas = ({
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const trailLengthRef = useRef(trailLength);
   const isSimulatingRef = useRef(isSimulating);
+  const lastTimeRef = useRef(null);
+  const accumulatorRef = useRef(0);
 
   const {
     engineRef,
@@ -311,47 +317,41 @@ const PendulumCanvas = ({
 
   const loop = useCallback(() => {
     const s = engineRef.current;
+    const agora = performance.now();
+    const dtReal = Math.min((agora - (lastTimeRef.current ?? agora)) / 1000, MAX_DT_FOTOGRAMA);
+    lastTimeRef.current = agora;
+
     if (s.pivot) {
-      if (isSimulatingRef.current) {
-        const dt = 0.2;
-        const g = s.gravity * 0.15;
-        const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
+      const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
 
-        if (!isDraggingAny) {
-          if (s.mode === 'simple') {
-            const accel = -(g / s.pendulum1.length) * Math.sin(s.pendulum1.angle);
-            s.pendulum1.velocity += accel * dt;
-            s.pendulum1.angle += s.pendulum1.velocity * dt;
-            s.pendulum1.velocity *= 0.998;
-          } else {
-            const m1 = s.mass1, m2 = s.mass2, l1 = s.pendulum1.length, l2 = s.pendulum2.length;
-            const a1 = s.pendulum1.angle, a2 = s.pendulum2.angle, v1 = s.pendulum1.velocity, v2 = s.pendulum2.velocity;
+      if (isSimulatingRef.current && !isDraggingAny) {
+        // Sen segundo brazo (por exemplo, a medio crear) compórtase coma un simple
+        const modo = s.mode === 'compound' && s.pendulum2.length > 0 ? 'dobre' : 'simple';
+        const params = {
+          modo,
+          L1: s.pendulum1.length / PX_POR_METRO,
+          L2: s.pendulum2.length / PX_POR_METRO,
+          m1: s.mass1,
+          m2: s.mass2,
+          g: s.gravity,
+          b: s.damping ?? 0,
+        };
+        const estado = {
+          θ1: s.pendulum1.angle,
+          ω1: s.pendulum1.velocity,
+          θ2: s.pendulum2.angle,
+          ω2: s.pendulum2.velocity,
+        };
 
-            const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
-            if (den !== 0 && Number.isFinite(den)) {
-              const a1_acc = (-g * (2 * m1 + m2) * Math.sin(a1) - m2 * g * Math.sin(a1 - 2 * a2) - 2 * Math.sin(a1 - a2) * m2 * (v2 * v2 * l2 + v1 * v1 * l1 * Math.cos(a1 - a2))) / den;
-              const a2_acc = (2 * Math.sin(a1 - a2) * (v1 * v1 * l1 * (m1 + m2) + g * (m1 + m2) * Math.cos(a1) + v2 * v2 * l2 * m2 * Math.cos(a1 - a2))) / (l2 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2)));
+        const res = avanzar(estado, params, dtReal, accumulatorRef.current);
+        accumulatorRef.current = res.acumulado;
 
-              const safeA1Acc = Math.max(-10, Math.min(10, a1_acc));
-              const safeA2Acc = Math.max(-10, Math.min(10, a2_acc));
-
-              // Validar que os cálculos son estables
-              if (Number.isFinite(safeA1Acc) && Number.isFinite(safeA2Acc)) {
-                s.pendulum1.velocity += safeA1Acc * dt;
-                s.pendulum2.velocity += safeA2Acc * dt;
-                s.pendulum1.angle += s.pendulum1.velocity * dt;
-                s.pendulum2.angle += s.pendulum2.velocity * dt;
-
-                s.pendulum1.velocity = Math.max(-2, Math.min(2, s.pendulum1.velocity));
-                s.pendulum2.velocity = Math.max(-3, Math.min(3, s.pendulum2.velocity));
-              } else {
-                // Reiniciar velocidades se o cálculo é inestable
-                s.pendulum1.velocity = 0;
-                s.pendulum2.velocity = 0;
-              }
-            }
-          }
-        }
+        s.pendulum1.angle = res.estado.θ1;
+        s.pendulum1.velocity = res.estado.ω1;
+        s.pendulum2.angle = res.estado.θ2;
+        s.pendulum2.velocity = res.estado.ω2;
+      } else {
+        accumulatorRef.current = 0;
       }
 
       updatePendulumPositions();

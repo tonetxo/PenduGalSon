@@ -97,11 +97,12 @@ export const useAudio = (isMuted, isSimulating, volume1 = 70, volume2 = 50) => {
     // Normalizar: sin(angle) está en [-1, 1]
     // dx controla a frecuencia (esquerda = grave, dereita = agudo)
     const dx1 = Math.sin(p1Angle);
-    // dy controla o volume baseándose na velocidade (máis rápido = máis forte)
-    const dy1 = Math.min(1, p1Velocity / 0.8 + 0.3); // Base de 0.3 para que sempre soe algo
+    // dy controla o volume baseándose na velocidade (máis rápido = máis forte).
+    // As velocidades van en rad/s reais (≈36 veces as da física antiga).
+    const dy1 = Math.min(1, p1Velocity / 29 + 0.3); // Base de 0.3 para que sempre soe algo
 
     const dx2 = Math.sin(p2Angle);
-    const dy2 = Math.min(1, p2Velocity / 0.6 + 0.2);
+    const dy2 = Math.min(1, p2Velocity / 22 + 0.2);
 
     // Bass: Frecuencia baseada no ángulo do péndulo 1
     const freqBass = 65.4 * Math.pow(2, (dx1 + 1) * 1.5); // C2 a C5

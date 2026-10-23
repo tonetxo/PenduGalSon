@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { PX_POR_METRO } from '../physics/pendulum';
 
 export const usePendulumRenderer = (canvasRef, view) => {
   const drawRingAnchor = useCallback((ctx, p, r, scale, active) => {
@@ -156,7 +157,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
     if (len > 0) {
       const perpX = -dy / len;
       const perpY = dx / len;
-      ctx.fillText(`${length} u`, midX + perpX * 15, midY + perpY * 15);
+      ctx.fillText(`${(length / PX_POR_METRO).toFixed(2)} m`, midX + perpX * 15, midY + perpY * 15);
     }
   }, []);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paso, enerxia, derivadasSimple, derivadasDobre } from './pendulum.js';
+import { paso, enerxia, avanzar, derivadasSimple, derivadasDobre } from './pendulum.js';
 
 const DT = 0.001;
 const G = 9.81;
@@ -120,5 +120,31 @@ describe('amortecemento (b > 0)', () => {
 
   it('a enerxía do dobre diminúe sempre', () => {
     comprobarDecrecente({ ...dobre, b: 0.1 }, { θ1: grados(120), ω1: 0, θ2: grados(-60), ω2: 0 });
+  });
+});
+
+describe('avanzar con subpasos fixos', () => {
+  function porFotogramas(hz, segundos) {
+    let s = { θ1: grados(120), ω1: 0, θ2: grados(-60), ω2: 0 };
+    let acumulado = 0;
+    for (let i = 0; i < Math.round(segundos * hz); i++) {
+      ({ estado: s, acumulado } = avanzar(s, dobre, 1 / hz, acumulado));
+    }
+    return s;
+  }
+
+  it('dá o mesmo resultado a 60 e a 120 Hz', () => {
+    const a60 = porFotogramas(60, 2);
+    const a120 = porFotogramas(120, 2);
+    expect(a120.θ1).toBeCloseTo(a60.θ1, 6);
+    expect(a120.θ2).toBeCloseTo(a60.θ2, 6);
+  });
+
+  it('o dobre segue estable durante 5 minutos sen límites', () => {
+    const inicial = { θ1: grados(120), ω1: 0, θ2: grados(-60), ω2: 0 };
+    const E0 = enerxia(inicial, dobre).total;
+    const { estado } = avanzar(inicial, dobre, 300);
+    expect(Number.isFinite(estado.θ1) && Number.isFinite(estado.θ2)).toBe(true);
+    expect(Math.abs(enerxia(estado, dobre).total - E0) / E0).toBeLessThan(1e-4);
   });
 });

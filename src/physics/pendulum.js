@@ -104,3 +104,23 @@ export function enerxia(estado, params) {
 
   return { cinetica, potencial, total: cinetica + potencial };
 }
+
+// Escala do debuxo: o mundo do canvas está en píxeles, a física en metros.
+export const PX_POR_METRO = 200;
+
+// Paso fixo de integración, en segundos.
+export const SUBPASO = 0.001;
+
+// Avanza a física un tempo real `dt` en subpasos fixos.
+// `acumulado` é o tempo que sobrou do fotograma anterior; devólvese o novo,
+// así o resultado non depende da frecuencia de fotogramas.
+export function avanzar(estado, params, dt, acumulado = 0, subpaso = SUBPASO) {
+  let s = estado;
+  let resto = acumulado + dt;
+  // A tolerancia evita perder un subpaso polo redondeo de restar 0,001 moitas veces
+  while (resto >= subpaso - 1e-9) {
+    s = paso(s, params, subpaso);
+    resto -= subpaso;
+  }
+  return { estado: s, acumulado: resto };
+}
