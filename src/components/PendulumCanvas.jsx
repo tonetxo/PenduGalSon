@@ -2,6 +2,46 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
 import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
+import EnergyPanel from './EnergyPanel';
+import PhasePanel from './PhasePanel';
+import { avanzar, enerxia, novoMedidor, rexistrarPaso, reducirAngulo, PX_POR_METRO, SUBPASO } from '../physics/pendulum';
+import { novoRexistro, engadirMostra, aCSV, nomeFicheiro, SUBPASOS_POR_MOSTRA } from '../physics/rexistro';
+import { fmt } from '../utils/fmt';
+import { claveSistema } from '../utils/canvas';
+import { compartirFicheiro } from '../utils/exportar';
+
+// O rastro mídese en segundos simulados: non depende da taxa de fotogramas
+function podarRastro(history, tempo, duracion) {
+  let n = 0;
+  while (n < history.length && tempo - history[n].t > duracion) n++;
+  if (n > 0) history.splice(0, n);
+}
+
+// Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
+const MAX_DT_FOTOGRAMA = 0.05;
+
+// Parámetros físicos (SI) a partir do estado do canvas (píxeles)
+const paramsDe = (s) => ({
+  // Sen segundo brazo (por exemplo, a medio crear) o dobre compórtase coma un simple
+  modo: s.mode === 'fisico' ? 'fisico' : s.mode === 'dobre' && s.pendulum2.length > 0 ? 'dobre' : 'simple',
+  L1: s.pendulum1.length / PX_POR_METRO,
+  L2: s.pendulum2.length / PX_POR_METRO,
+  m1: s.mass1,
+  m2: s.mass2,
+  g: s.gravity,
+  b: s.damping ?? 0,
+});
+
+const estadoDe = (s) => ({
+  θ1: s.pendulum1.angle,
+  ω1: s.pendulum1.velocity,
+  θ2: s.pendulum2.angle,
+  ω2: s.pendulum2.velocity,
+});
+
+// Perturbación do péndulo de comparación, en rad
+const DELTA_COMPARAR = 0.001;
+
 
 const PendulumCanvas = ({
   isSimulating,
@@ -14,8 +54,11 @@ const PendulumCanvas = ({
   gravity,
   mass1,
   mass2,
+  damping,
   volume1,
   volume2,
+  escala,
+  disparo,
   snapEnabled,
   setSnapEnabled,
   snapAnglesEnabled,
@@ -27,6 +70,14 @@ const PendulumCanvas = ({
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const trailLengthRef = useRef(trailLength);
   const isSimulatingRef = useRef(isSimulating);
+  const lastTimeRef = useRef(null);
+  const [showData, setShowData] = useState(false);
+  // Estado da interface que depende do motor; o bucle sincronízao só cando cambia
+  const [ui, setUi] = useState({ haiPendulo: false, comparando: false });
+  const uiRef = useRef(ui);
+  const deltaRef = useRef(null);
+  const ultimoDeltaRef = useRef(0);
+  const accumulatorRef = useRef(0);
 
   const {
     engineRef,
@@ -34,9 +85,10 @@ const PendulumCanvas = ({
     updateGravity,
     updateMass1,
     updateMass2,
+    updateDamping,
     updateMode
   } = usePhysics();
-  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2);
+  const { initAudio, updateAudio } = useAudio(isMuted, isSimulating, volume1, volume2, escala, disparo);
   const { render } = usePendulumRenderer(canvasRef, viewRef);
 
   useEffect(() => { trailLengthRef.current = trailLength; }, [trailLength]);
@@ -44,6 +96,7 @@ const PendulumCanvas = ({
   useEffect(() => { updateGravity(gravity); }, [gravity, updateGravity]);
   useEffect(() => { updateMass1(mass1); }, [mass1, updateMass1]);
   useEffect(() => { updateMass2(mass2); }, [mass2, updateMass2]);
+  useEffect(() => { updateDamping(damping); }, [damping, updateDamping]);
   useEffect(() => { updateMode(mode); }, [mode, updateMode]);
 
   // Asegurar que o audio se inicializa cando se empeza a simular
@@ -80,7 +133,7 @@ const PendulumCanvas = ({
       { id: 'p1', pos: s.pendulum1, dist: getDist(worldPos, s.pendulum1) },
     ];
 
-    if (mode === 'compound' && s.pendulum2.length > 0) {
+    if (mode === 'dobre' && s.pendulum2.length > 0) {
       candidates.push({ id: 'p2', pos: s.pendulum2, dist: getDist(worldPos, s.pendulum2) });
     }
 
@@ -286,7 +339,7 @@ const PendulumCanvas = ({
     if (!s.isDragging) return;
 
     if (s.dragTarget === 'p1') {
-      if (mode === 'simple') {
+      if (mode !== 'dobre') {
         if (s.dragStep === 1) {
           // Iniciar simulación automaticamente ao completar a creación
           setIsSimulating(true);
@@ -309,61 +362,121 @@ const PendulumCanvas = ({
     s.dragTarget = null;
   }, [engineRef, mode, updatePendulumPositions, setIsSimulating]);
 
+  const alternarComparar = useCallback(() => {
+    const s = engineRef.current;
+    if (s.comparar) {
+      s.comparar = null;
+    } else if (s.pivot && s.mode === 'dobre') {
+      const estado = estadoDe(s);
+      s.comparar = { estado: { ...estado, θ2: estado.θ2 + DELTA_COMPARAR }, history: [] };
+    }
+  }, [engineRef]);
+
+  const exportarCSV = useCallback(async () => {
+    const s = engineRef.current;
+    if (!s.rexistro || !s.params) return;
+    try {
+      await compartirFicheiro(nomeFicheiro(s.params), aCSV(s.rexistro));
+    } catch (e) {
+      // Pechar a folla de compartir sen escoller nada tamén chega aquí
+      console.warn('Exportación cancelada ou fallida', e);
+    }
+  }, [engineRef]);
+
   const loop = useCallback(() => {
     const s = engineRef.current;
+    const agora = performance.now();
+    const dtReal = Math.min((agora - (lastTimeRef.current ?? agora)) / 1000, MAX_DT_FOTOGRAMA);
+    lastTimeRef.current = agora;
+
     if (s.pivot) {
-      if (isSimulatingRef.current) {
-        const dt = 0.2;
-        const g = s.gravity * 0.15;
-        const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
+      const isDraggingAny = s.isDragging && s.dragTarget !== 'pan' && s.dragTarget !== 'zoom';
 
-        if (!isDraggingAny) {
-          if (s.mode === 'simple') {
-            const accel = -(g / s.pendulum1.length) * Math.sin(s.pendulum1.angle);
-            s.pendulum1.velocity += accel * dt;
-            s.pendulum1.angle += s.pendulum1.velocity * dt;
-            s.pendulum1.velocity *= 0.998;
-          } else {
-            const m1 = s.mass1, m2 = s.mass2, l1 = s.pendulum1.length, l2 = s.pendulum2.length;
-            const a1 = s.pendulum1.angle, a2 = s.pendulum2.angle, v1 = s.pendulum1.velocity, v2 = s.pendulum2.velocity;
+      const params = paramsDe(s);
 
-            const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2));
-            if (den !== 0 && Number.isFinite(den)) {
-              const a1_acc = (-g * (2 * m1 + m2) * Math.sin(a1) - m2 * g * Math.sin(a1 - 2 * a2) - 2 * Math.sin(a1 - a2) * m2 * (v2 * v2 * l2 + v1 * v1 * l1 * Math.cos(a1 - a2))) / den;
-              const a2_acc = (2 * Math.sin(a1 - a2) * (v1 * v1 * l1 * (m1 + m2) + g * (m1 + m2) * Math.cos(a1) + v2 * v2 * l2 * m2 * Math.cos(a1 - a2))) / (l2 * (2 * m1 + m2 - m2 * Math.cos(2 * a1 - 2 * a2)));
-
-              const safeA1Acc = Math.max(-10, Math.min(10, a1_acc));
-              const safeA2Acc = Math.max(-10, Math.min(10, a2_acc));
-
-              // Validar que os cálculos son estables
-              if (Number.isFinite(safeA1Acc) && Number.isFinite(safeA2Acc)) {
-                s.pendulum1.velocity += safeA1Acc * dt;
-                s.pendulum2.velocity += safeA2Acc * dt;
-                s.pendulum1.angle += s.pendulum1.velocity * dt;
-                s.pendulum2.angle += s.pendulum2.velocity * dt;
-
-                s.pendulum1.velocity = Math.max(-2, Math.min(2, s.pendulum1.velocity));
-                s.pendulum2.velocity = Math.max(-3, Math.min(3, s.pendulum2.velocity));
-              } else {
-                // Reiniciar velocidades se o cálculo é inestable
-                s.pendulum1.velocity = 0;
-                s.pendulum2.velocity = 0;
-              }
-            }
-          }
-        }
+      // O período mídese de novo se cambia a lonxitude, a gravidade ou o modo
+      const claveMedida = `${params.modo}|${params.L1}|${params.g}`;
+      if (!s.medidor || s.medidor.clave !== claveMedida || isDraggingAny) {
+        s.medidor = { ...novoMedidor(), clave: claveMedida };
       }
+
+      // Gravación para o CSV: unha por experimento, empeza de novo se cambia o sistema
+      const claveRexistro = claveSistema(params);
+      if (!s.rexistro || s.rexistro.clave !== claveRexistro || isDraggingAny) {
+        s.rexistro = { ...novoRexistro(), clave: claveRexistro, subpasos: 0 };
+        engadirMostra(s.rexistro, 0, estadoDe(s), enerxia(estadoDe(s), params));
+      }
+
+      // A comparación só ten sentido mentres non se toca o péndulo
+      if (s.comparar && (params.modo !== 'dobre' || isDraggingAny)) s.comparar = null;
+
+      if (isSimulatingRef.current && !isDraggingAny) {
+        const estado = estadoDe(s);
+        if (s.comparar) {
+          // Mesmo acumulador có principal: os dous dan exactamente os mesmos subpasos
+          s.comparar.estado = avanzar(s.comparar.estado, params, dtReal, accumulatorRef.current).estado;
+        }
+        const rexistro = s.rexistro;
+        const mostrear = (e) => {
+          rexistro.subpasos++;
+          if (rexistro.subpasos % SUBPASOS_POR_MOSTRA === 0) {
+            engadirMostra(rexistro, rexistro.subpasos * SUBPASO, e, enerxia(e, params));
+          }
+        };
+        const res = avanzar(estado, params, dtReal, accumulatorRef.current, SUBPASO, mostrear);
+        // Tempo simulado exacto: o consumido polos subpasos neste fotograma
+        const tAnterior = s.tempo;
+        s.tempo += dtReal + accumulatorRef.current - res.acumulado;
+        accumulatorRef.current = res.acumulado;
+
+        s.medidor = {
+          ...rexistrarPaso(s.medidor, estado.θ1, res.estado.θ1, tAnterior, s.tempo),
+          clave: claveMedida,
+        };
+
+        s.pendulum1.angle = res.estado.θ1;
+        s.pendulum1.velocity = res.estado.ω1;
+        s.pendulum2.angle = res.estado.θ2;
+        s.pendulum2.velocity = res.estado.ω2;
+      } else {
+        accumulatorRef.current = 0;
+      }
+
+      s.params = params;
+      s.enerxia = enerxia(estadoDe(s), params);
 
       updatePendulumPositions();
 
       if (isSimulatingRef.current && !s.isDragging) {
-        s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y });
-        if (s.history.length > trailLengthRef.current) {
-          s.history.splice(0, s.history.length - trailLengthRef.current);
+        s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y, t: s.tempo });
+        podarRastro(s.history, s.tempo, trailLengthRef.current);
+      }
+
+      if (s.comparar) {
+        const c = s.comparar;
+        const { θ1, θ2 } = c.estado;
+        const x1 = s.pivot.x + s.pendulum1.length * Math.sin(θ1);
+        const y1 = s.pivot.y + s.pendulum1.length * Math.cos(θ1);
+        c.p1 = { x: x1, y: y1 };
+        c.p2 = { x: x1 + s.pendulum2.length * Math.sin(θ2), y: y1 + s.pendulum2.length * Math.cos(θ2) };
+        if (isSimulatingRef.current) {
+          c.history.push({ ...c.p2, t: s.tempo });
+          podarRastro(c.history, s.tempo, trailLengthRef.current);
+        }
+        if (deltaRef.current && agora - ultimoDeltaRef.current > 100) {
+          ultimoDeltaRef.current = agora;
+          const delta = Math.abs(reducirAngulo(s.pendulum2.angle - θ2)) * 180 / Math.PI;
+          deltaRef.current.textContent = `Δθ₂ ${fmt(delta, delta < 1 ? 3 : 0)}°`;
         }
       }
 
     }
+    const novaUi = { haiPendulo: !!s.pivot, comparando: !!s.comparar };
+    if (novaUi.haiPendulo !== uiRef.current.haiPendulo || novaUi.comparando !== uiRef.current.comparando) {
+      uiRef.current = novaUi;
+      setUi(novaUi);
+    }
+
     updateAudio(s);
     render(s, s.mode, trailLengthRef.current, snapAnglesEnabled, isSimulatingRef.current);
   }, [engineRef, updatePendulumPositions, updateAudio, render, snapAnglesEnabled]);
@@ -430,11 +543,55 @@ const PendulumCanvas = ({
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
 
+        {showData && (
+          <div className="absolute top-3 left-3 w-44 flex flex-col gap-2 pointer-events-none z-20">
+            <EnergyPanel />
+            <PhasePanel />
+          </div>
+        )}
+
+        {/* Botón de datos (enerxía, período e espazo de fases) */}
+        <button
+          onClick={() => setShowData(!showData)}
+          className={`absolute top-4 right-36 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${showData ? 'bg-slate-700 text-white border-slate-800' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-slate-700'}`}
+          title={showData ? 'Ocultar datos' : 'Amosar datos'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
+        </button>
+
+        {ui.haiPendulo && (
+          <button
+            onClick={exportarCSV}
+            className="absolute top-20 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-slate-700"
+            title="Exportar CSV (t, θ, ω, enerxías)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+        )}
+
+        {mode === 'dobre' && ui.haiPendulo && (
+          <button
+            onClick={alternarComparar}
+            className={`absolute top-36 right-4 px-4 py-2 rounded-full shadow-md border active:scale-95 transition-all z-30 text-sm font-bold ${ui.comparando ? 'bg-amber-500 text-white border-amber-600' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-600'}`}
+            title="Engade un segundo péndulo con θ₂ + 0,001 rad"
+          >
+            {ui.comparando ? <span ref={deltaRef} className="font-mono tabular-nums">Δθ₂ 0,057°</span> : 'Comparar'}
+          </button>
+        )}
+
         {/* Botón de Snap to Grid - MORADO */}
         <button
           onClick={() => setSnapEnabled(!snapEnabled)}
           className={`absolute top-4 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapEnabled ? 'bg-purple-600 text-white border-purple-700 shadow-purple-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-purple-600'}`}
-          title={snapEnabled ? "Desactivar Snap a Cadrícula" : "Activar Snap a Cadrícula"}
+          title={snapEnabled ? "Desactivar axuste á cuadrícula" : "Activar axuste á cuadrícula"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -449,13 +606,28 @@ const PendulumCanvas = ({
         <button
           onClick={() => setSnapAnglesEnabled(!snapAnglesEnabled)}
           className={`absolute top-4 right-20 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${snapAnglesEnabled ? 'bg-blue-600 text-white border-blue-700 shadow-blue-200' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-blue-600'}`}
-          title={snapAnglesEnabled ? "Desactivar Snap de Ángulos" : "Activar Snap de Ángulos (15° y longitudes)"}
+          title={snapAnglesEnabled ? "Desactivar axuste de ángulos" : "Activar axuste de ángulos (15° e lonxitudes de 0,25 m)"}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"></circle>
             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
           </svg>
         </button>
+
+        {!ui.haiPendulo && !showInstructions && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 pointer-events-none text-slate-400">
+            <svg width="96" height="120" viewBox="0 0 96 120" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="pista-pendulo">
+              <circle cx="48" cy="10" r="4" />
+              <line x1="48" y1="10" x2="48" y2="60" />
+              <line x1="48" y1="60" x2="48" y2="105" />
+              <circle cx="48" cy="60" r="8" fill="#3b82f6" stroke="none" opacity="0.7" />
+              <circle cx="48" cy="105" r="10" fill="#9333ea" stroke="none" opacity="0.7" />
+            </svg>
+            <p className="text-sm font-medium text-center px-8">
+              Toca e arrastra para lanzar un {mode === 'dobre' ? 'péndulo dobre' : 'péndulo'}
+            </p>
+          </div>
+        )}
 
         {showInstructions && (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -482,6 +654,18 @@ const PendulumCanvas = ({
                   <ul className="list-disc list-inside space-y-1 pl-1 text-sm">
                     <li>O <span className="font-bold">movemento lateral</span> dita o ton e o pulso.</li>
                     <li>A <span className="font-bold">caída vertical</span> modula a intensidade da voz.</li>
+                  </ul>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="font-bold text-slate-800 mb-2 text-center sm:text-left">Como usalo:</p>
+                  <ul className="list-disc list-inside space-y-1 pl-1 text-sm">
+                    <li><span className="font-bold">Comezar:</span> a app abre co lenzo baleiro; o botón ≡, que pulsa ata que o premes, abre os axustes.</li>
+                    <li><span className="font-bold">Crear:</span> toca o lenzo (pivote) e arrastra; ao soltar nace o péndulo e arranca.</li>
+                    <li><span className="font-bold">Recolocar:</span> arrastra o pivote ou as masas (pausa a simulación).</li>
+                    <li><span className="font-bold">Vista:</span> un dedo no fondo move; dous dedos fan zoom.</li>
+                    <li><span className="font-bold">Cabeceira:</span> ▶ pausa/retoma e ↻ reinicia. Os axustes (gravidade, masas, amortecemento, son, rastro) están baixo ≡.</li>
+                    <li><span className="font-bold">Modos:</span> Simple, Dobre (caótico, deixa rastro) e Físico (vara ríxida).</li>
+                    <li><span className="font-bold">Lenzo:</span> gráfica de datos (agochada ao abrir), axuste á cuadrícula e aos ángulos, exportar CSV e, no dobre, Comparar: dous péndulos case iguais para ver o caos.</li>
                   </ul>
                 </div>
               </div>

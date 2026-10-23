@@ -47,3 +47,6 @@ input[type="range"] {
 input[type="range"]:hover {
   opacity: 0.9;
 }
+/* Pista do lenzo baleiro: péndulo dobre que se bambea suave */
+.pista-pendulo { transform-origin: 48px 10px; animation: pista-bambeo 3.2s ease-in-out infinite; }
+@keyframes pista-bambeo { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
