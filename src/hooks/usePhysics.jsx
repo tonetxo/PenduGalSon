@@ -27,6 +27,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     tempo: 0, // s simulados
     enerxia: null,
     medidor: null,
+    comparar: null, // péndulo de comparación (sensibilidade ao caos)
     snapAngle1: null,
     snapLength1: null,
     snapAngle2: null,
@@ -59,6 +60,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     s.tempo = 0;
     s.enerxia = null;
     s.medidor = null;
+    s.comparar = null;
   }, []);
 
   const updateGravity = useCallback((g) => { engineRef.current.gravity = g; }, []);

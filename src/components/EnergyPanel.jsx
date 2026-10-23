@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
 import { periodoTeorico } from '../physics/pendulum';
 import { fmt, fmtCifras } from '../utils/fmt';
+import { prepararCanvas, claveSistema } from '../utils/canvas';
 
 const COR = { cinetica: '#f59e0b', potencial: '#10b981', total: '#334155' };
 const VENTA_S = 10; // segundos visibles na gráfica
@@ -42,14 +43,7 @@ const EnergyPanel = () => {
     let id;
 
     const debuxarGrafica = (escala) => {
-      const canvas = graficaRef.current;
-      if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth, h = canvas.clientHeight;
-      if (canvas.width !== w * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      const { ctx, w, h } = prepararCanvas(graficaRef.current);
       if (historial.length < 2 || escala <= 0) return;
 
       const n = VENTA_S * 1000 / MOSTRA_MS;
@@ -81,8 +75,8 @@ const EnergyPanel = () => {
 
       // A gráfica empeza de novo ao arrastrar ou cambiar parámetros:
       // a enerxía total só ten que ser constante para un mesmo sistema
-      const { modo, L1, L2, m1, m2, g } = s.params;
-      const clave = `${modo}|${L1}|${L2}|${m1}|${m2}|${g}`;
+      const { modo, L1, L2, g } = s.params;
+      const clave = claveSistema(s.params);
       if (s.isDragging || clave !== claveHistorial) {
         historial.length = 0;
         claveHistorial = clave;
@@ -135,7 +129,7 @@ const EnergyPanel = () => {
     <div
       ref={panelRef}
       style={{ display: 'none' }}
-      className="absolute top-3 left-3 w-44 p-2.5 space-y-1.5 bg-white/85 backdrop-blur rounded-2xl border border-slate-200 shadow-sm text-[10px] text-slate-700 pointer-events-none z-20"
+      className="p-2.5 space-y-1.5 bg-white/85 backdrop-blur rounded-2xl border border-slate-200 shadow-sm text-[10px] text-slate-700"
     >
       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enerxía</div>
       <Fila etiqueta="Cinética" cor={COR.cinetica} valorRef={v.cinetica} barraRef={barra.cinetica} />

@@ -220,3 +220,26 @@ describe('medidor de período (o que amosa a interface)', () => {
     expect(m.periodo).toBeCloseTo(2, 10);
   });
 });
+
+describe('sensibilidade ás condicións iniciais (botón Comparar)', () => {
+  it('dous dobres con θ2 separados 0,001 rad divérxen aos poucos segundos', () => {
+    let a = { θ1: grados(120), ω1: 0, θ2: grados(-60), ω2: 0 };
+    let b = { ...a, θ2: a.θ2 + 0.001 };
+    const separacion = [];
+    for (let t = 1; t <= 20; t++) {
+      a = avanzar(a, dobre, 1).estado;
+      b = avanzar(b, dobre, 1).estado;
+      separacion.push(Math.abs(a.θ2 - b.θ2));
+    }
+    expect(separacion[0]).toBeLessThan(0.01); // ao segundo aínda van xuntos
+    expect(Math.max(...separacion)).toBeGreaterThan(1); // despois, nada que ver
+  });
+
+  it('cun ángulo pequeno o dobre non é caótico e seguen xuntos', () => {
+    let a = { θ1: grados(10), ω1: 0, θ2: grados(10), ω2: 0 };
+    let b = { ...a, θ2: a.θ2 + 0.001 };
+    a = avanzar(a, dobre, 20).estado;
+    b = avanzar(b, dobre, 20).estado;
+    expect(Math.abs(a.θ2 - b.θ2)).toBeLessThan(0.01);
+  });
+});

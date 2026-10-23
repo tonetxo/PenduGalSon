@@ -138,11 +138,11 @@ export function novoMedidor() {
 }
 
 // Ángulo reducido a (-π, π]: se dá voltas, o centro tamén está en 2π, 4π…
-const reducir = (θ) => Math.atan2(Math.sin(θ), Math.cos(θ));
+export const reducirAngulo = (θ) => Math.atan2(Math.sin(θ), Math.cos(θ));
 
 export function rexistrarPaso(medidor, θAnterior, θ, tAnterior, t) {
-  const a = reducir(θAnterior);
-  const b = reducir(θ);
+  const a = reducirAngulo(θAnterior);
+  const b = reducirAngulo(θ);
   // Un salto maior ca π é o paso polo punto máis alto (±π), non polo centro
   if (Math.abs(b - a) > Math.PI) return medidor;
 

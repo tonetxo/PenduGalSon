@@ -3,7 +3,9 @@ import { usePhysics } from '../hooks/usePhysics';
 import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
 import EnergyPanel from './EnergyPanel';
-import { avanzar, enerxia, novoMedidor, rexistrarPaso, PX_POR_METRO } from '../physics/pendulum';
+import PhasePanel from './PhasePanel';
+import { avanzar, enerxia, novoMedidor, rexistrarPaso, reducirAngulo, PX_POR_METRO } from '../physics/pendulum';
+import { fmt } from '../utils/fmt';
 
 // Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
 const MAX_DT_FOTOGRAMA = 0.05;
@@ -26,6 +28,10 @@ const estadoDe = (s) => ({
   θ2: s.pendulum2.angle,
   ω2: s.pendulum2.velocity,
 });
+
+// Perturbación do péndulo de comparación, en rad
+const DELTA_COMPARAR = 0.001;
+
 
 const PendulumCanvas = ({
   isSimulating,
@@ -53,6 +59,12 @@ const PendulumCanvas = ({
   const trailLengthRef = useRef(trailLength);
   const isSimulatingRef = useRef(isSimulating);
   const lastTimeRef = useRef(null);
+  const [showData, setShowData] = useState(true);
+  // Estado da interface que depende do motor; o bucle sincronízao só cando cambia
+  const [ui, setUi] = useState({ haiPendulo: false, comparando: false });
+  const uiRef = useRef(ui);
+  const deltaRef = useRef(null);
+  const ultimoDeltaRef = useRef(0);
   const accumulatorRef = useRef(0);
 
   const {
@@ -338,6 +350,16 @@ const PendulumCanvas = ({
     s.dragTarget = null;
   }, [engineRef, mode, updatePendulumPositions, setIsSimulating]);
 
+  const alternarComparar = useCallback(() => {
+    const s = engineRef.current;
+    if (s.comparar) {
+      s.comparar = null;
+    } else if (s.pivot && s.mode === 'dobre') {
+      const estado = estadoDe(s);
+      s.comparar = { estado: { ...estado, θ2: estado.θ2 + DELTA_COMPARAR }, history: [] };
+    }
+  }, [engineRef]);
+
   const loop = useCallback(() => {
     const s = engineRef.current;
     const agora = performance.now();
@@ -355,8 +377,15 @@ const PendulumCanvas = ({
         s.medidor = { ...novoMedidor(), clave: claveMedida };
       }
 
+      // A comparación só ten sentido mentres non se toca o péndulo
+      if (s.comparar && (params.modo !== 'dobre' || isDraggingAny)) s.comparar = null;
+
       if (isSimulatingRef.current && !isDraggingAny) {
         const estado = estadoDe(s);
+        if (s.comparar) {
+          // Mesmo acumulador có principal: os dous dan exactamente os mesmos subpasos
+          s.comparar.estado = avanzar(s.comparar.estado, params, dtReal, accumulatorRef.current).estado;
+        }
         const res = avanzar(estado, params, dtReal, accumulatorRef.current);
         // Tempo simulado exacto: o consumido polos subpasos neste fotograma
         const tAnterior = s.tempo;
@@ -388,7 +417,33 @@ const PendulumCanvas = ({
         }
       }
 
+      if (s.comparar) {
+        const c = s.comparar;
+        const { θ1, θ2 } = c.estado;
+        const x1 = s.pivot.x + s.pendulum1.length * Math.sin(θ1);
+        const y1 = s.pivot.y + s.pendulum1.length * Math.cos(θ1);
+        c.p1 = { x: x1, y: y1 };
+        c.p2 = { x: x1 + s.pendulum2.length * Math.sin(θ2), y: y1 + s.pendulum2.length * Math.cos(θ2) };
+        if (isSimulatingRef.current) {
+          c.history.push(c.p2);
+          if (c.history.length > trailLengthRef.current) {
+            c.history.splice(0, c.history.length - trailLengthRef.current);
+          }
+        }
+        if (deltaRef.current && agora - ultimoDeltaRef.current > 100) {
+          ultimoDeltaRef.current = agora;
+          const delta = Math.abs(reducirAngulo(s.pendulum2.angle - θ2)) * 180 / Math.PI;
+          deltaRef.current.textContent = `Δθ₂ ${fmt(delta, delta < 1 ? 3 : 0)}°`;
+        }
+      }
+
     }
+    const novaUi = { haiPendulo: !!s.pivot, comparando: !!s.comparar };
+    if (novaUi.haiPendulo !== uiRef.current.haiPendulo || novaUi.comparando !== uiRef.current.comparando) {
+      uiRef.current = novaUi;
+      setUi(novaUi);
+    }
+
     updateAudio(s);
     render(s, s.mode, trailLengthRef.current, snapAnglesEnabled, isSimulatingRef.current);
   }, [engineRef, updatePendulumPositions, updateAudio, render, snapAnglesEnabled]);
@@ -455,7 +510,35 @@ const PendulumCanvas = ({
           className="absolute inset-0 w-full h-full touch-none cursor-default"
         />
 
-        <EnergyPanel />
+        {showData && (
+          <div className="absolute top-3 left-3 w-44 flex flex-col gap-2 pointer-events-none z-20">
+            <EnergyPanel />
+            <PhasePanel />
+          </div>
+        )}
+
+        {/* Botón de datos (enerxía, período e espazo de fases) */}
+        <button
+          onClick={() => setShowData(!showData)}
+          className={`absolute top-4 right-36 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 ${showData ? 'bg-slate-700 text-white border-slate-800' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-slate-700'}`}
+          title={showData ? 'Ocultar datos' : 'Amosar datos'}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
+        </button>
+
+        {mode === 'dobre' && ui.haiPendulo && (
+          <button
+            onClick={alternarComparar}
+            className={`absolute top-20 right-4 px-4 py-2 rounded-full shadow-md border active:scale-95 transition-all z-30 text-sm font-bold ${ui.comparando ? 'bg-amber-500 text-white border-amber-600' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-600'}`}
+            title="Engade un segundo péndulo con θ₂ + 0,001 rad"
+          >
+            {ui.comparando ? <span ref={deltaRef} className="font-mono tabular-nums">Δθ₂ 0,057°</span> : 'Comparar'}
+          </button>
+        )}
 
         {/* Botón de Snap to Grid - MORADO */}
         <button

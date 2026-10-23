@@ -204,6 +204,33 @@ export const usePendulumRenderer = (canvasRef, view) => {
         ctx.stroke();
       }
 
+      // PÉNDULO DE COMPARACIÓN (semitransparente, por debaixo do principal)
+      const c = state.comparar;
+      if (mode === 'dobre' && c?.p2) {
+        ctx.save();
+        if (c.history.length > 1) {
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+          ctx.lineWidth = 2 / scale;
+          ctx.lineJoin = 'round';
+          ctx.moveTo(c.history[0].x, c.history[0].y);
+          for (let i = 1; i < c.history.length; i++) ctx.lineTo(c.history[i].x, c.history[i].y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 0.4;
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 3 / scale;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(state.pivot.x, state.pivot.y);
+        ctx.lineTo(c.p1.x, c.p1.y);
+        ctx.lineTo(c.p2.x, c.p2.y);
+        ctx.stroke();
+        drawMetallicBall(ctx, c.p1, radioBola(state.mass1), 'blue', scale, false);
+        drawMetallicBall(ctx, c.p2, radioBola(state.mass2), 'purple', scale, false);
+        ctx.restore();
+      }
+
       // BRAZOS METÁLICOS
       ctx.lineCap = 'round';
       ctx.lineWidth = 3 / scale;
