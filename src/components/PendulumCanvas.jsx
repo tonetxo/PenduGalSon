@@ -10,6 +10,13 @@ import { fmt } from '../utils/fmt';
 import { claveSistema } from '../utils/canvas';
 import { compartirFicheiro } from '../utils/exportar';
 
+// O rastro mídese en segundos simulados: non depende da taxa de fotogramas
+function podarRastro(history, tempo, duracion) {
+  let n = 0;
+  while (n < history.length && tempo - history[n].t > duracion) n++;
+  if (n > 0) history.splice(0, n);
+}
+
 // Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
 const MAX_DT_FOTOGRAMA = 0.05;
 
@@ -441,10 +448,8 @@ const PendulumCanvas = ({
       updatePendulumPositions();
 
       if (isSimulatingRef.current && !s.isDragging) {
-        s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y });
-        if (s.history.length > trailLengthRef.current) {
-          s.history.splice(0, s.history.length - trailLengthRef.current);
-        }
+        s.history.push({ x: s.pendulum2.x, y: s.pendulum2.y, t: s.tempo });
+        podarRastro(s.history, s.tempo, trailLengthRef.current);
       }
 
       if (s.comparar) {
@@ -455,10 +460,8 @@ const PendulumCanvas = ({
         c.p1 = { x: x1, y: y1 };
         c.p2 = { x: x1 + s.pendulum2.length * Math.sin(θ2), y: y1 + s.pendulum2.length * Math.cos(θ2) };
         if (isSimulatingRef.current) {
-          c.history.push(c.p2);
-          if (c.history.length > trailLengthRef.current) {
-            c.history.splice(0, c.history.length - trailLengthRef.current);
-          }
+          c.history.push({ ...c.p2, t: s.tempo });
+          podarRastro(c.history, s.tempo, trailLengthRef.current);
         }
         if (deltaRef.current && agora - ultimoDeltaRef.current > 100) {
           ultimoDeltaRef.current = agora;

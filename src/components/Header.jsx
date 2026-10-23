@@ -25,7 +25,7 @@ const Header = ({
         setMass1(1);
         setMass2(1);
         setDamping(0);
-        setTrailLength(200);
+        setTrailLength(3);
         // Mantemos o modo actual
         setIsSimulating(false);
     };

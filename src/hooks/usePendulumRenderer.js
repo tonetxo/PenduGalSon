@@ -8,6 +8,34 @@ const radioBola = (masa) => 8 + 6 * Math.cbrt(masa);
 // Grosor da barra do péndulo físico en px segundo a súa masa en kg
 const grosorBarra = (masa) => 6 + 4 * Math.cbrt(masa);
 
+// Rastro con opacidade segundo a idade (en segundos simulados) de cada punto.
+// Agrúpase en tramos para non facer un stroke por segmento.
+const TRAMOS_RASTRO = 24;
+function drawTrail(ctx, history, tempo, duracion, rgb, alphaMax, width) {
+  if (history.length < 2 || duracion <= 0) return;
+  ctx.save();
+  ctx.lineWidth = width;
+  ctx.lineJoin = 'round';
+  // Puntas planas: as redondas solapan nas unións dos tramos e deixan puntos máis opacos
+  ctx.lineCap = 'butt';
+  const n = history.length;
+  let inicio = 0;
+  for (let k = 1; k <= TRAMOS_RASTRO; k++) {
+    const fin = k === TRAMOS_RASTRO ? n - 1 : Math.round((k * (n - 1)) / TRAMOS_RASTRO);
+    if (fin <= inicio) continue;
+    // Idade do punto medio do tramo: 0 = novo, 1 = a piques de desaparecer
+    const medio = history[(inicio + fin) >> 1];
+    const idade = Math.min(1, Math.max(0, (tempo - medio.t) / duracion));
+    ctx.strokeStyle = `rgba(${rgb}, ${(alphaMax * (1 - idade) ** 1.5).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(history[inicio].x, history[inicio].y);
+    for (let i = inicio + 1; i <= fin; i++) ctx.lineTo(history[i].x, history[i].y);
+    ctx.stroke();
+    inicio = fin;
+  }
+  ctx.restore();
+}
+
 export const usePendulumRenderer = (canvasRef, view) => {
   const drawRingAnchor = useCallback((ctx, p, r, scale, active) => {
     const rad = r / scale;
@@ -229,41 +257,16 @@ export const usePendulumRenderer = (canvasRef, view) => {
     drawGrid(ctx, canvas.width, canvas.height, scale, x, y);
 
     if (state.pivot) {
-      // ESTELA SUAVE
-      if (mode === 'dobre' && state.history.length > 1) {
-        ctx.beginPath();
-        // Gradiente para la estela (desvanece al final)
-        const gradient = ctx.createLinearGradient(
-          state.history[0].x, state.history[0].y,
-          state.history[state.history.length - 1].x, state.history[state.history.length - 1].y
-        );
-        gradient.addColorStop(0, 'rgba(147, 81, 234, 0)');
-        gradient.addColorStop(1, 'rgba(147, 81, 234, 0.5)');
-        ctx.strokeStyle = gradient;
-
-        ctx.lineWidth = 3 / scale;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.moveTo(state.history[0].x, state.history[0].y);
-        for (let i = 1; i < state.history.length; i++) {
-          ctx.lineTo(state.history[i].x, state.history[i].y);
-        }
-        ctx.stroke();
+      // ESTELA: desvanécese coa idade de cada punto, ao longo do propio camiño
+      if (mode === 'dobre') {
+        drawTrail(ctx, state.history, state.tempo, trailLength, '147, 81, 234', 0.7, 3 / scale);
       }
 
       // PÉNDULO DE COMPARACIÓN (semitransparente, por debaixo do principal)
       const c = state.comparar;
       if (mode === 'dobre' && c?.p2) {
         ctx.save();
-        if (c.history.length > 1) {
-          ctx.beginPath();
-          ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
-          ctx.lineWidth = 2 / scale;
-          ctx.lineJoin = 'round';
-          ctx.moveTo(c.history[0].x, c.history[0].y);
-          for (let i = 1; i < c.history.length; i++) ctx.lineTo(c.history[i].x, c.history[i].y);
-          ctx.stroke();
-        }
+        drawTrail(ctx, c.history, state.tempo, trailLength, '245, 158, 11', 0.55, 2 / scale);
         ctx.globalAlpha = 0.4;
         ctx.strokeStyle = '#94a3b8';
         ctx.lineWidth = 3 / scale;

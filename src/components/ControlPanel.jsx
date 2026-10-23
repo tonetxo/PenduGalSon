@@ -295,12 +295,13 @@ const ControlPanel = ({
               <div className="space-y-2 pt-2 border-t">
                 <div className="flex justify-between text-xs font-bold">
                   <span>Duración do Rastro</span>
-                  <span>{trailLength}</span>
+                  <span>{trailLength} s</span>
                 </div>
                 <input
                   type="range"
                   min="0"
-                  max="500"
+                  max="10"
+                  step="0.5"
                   value={trailLength}
                   onChange={e => setTrailLength(Number(e.target.value))}
                   className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none accent-purple-600 cursor-pointer"

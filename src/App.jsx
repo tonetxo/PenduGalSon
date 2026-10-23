@@ -14,7 +14,7 @@ const App = () => {
   const [volume2, setVolume2] = useState(50);
   const [escala, setEscala] = useState('libre');
   const [disparo, setDisparo] = useState('continuo');
-  const [trailLength, setTrailLength] = useState(200);
+  const [trailLength, setTrailLength] = useState(3);
   const [mode, setMode] = useState('simple');
   const [isSimulating, setIsSimulating] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
