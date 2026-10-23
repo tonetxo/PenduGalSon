@@ -126,7 +126,18 @@ const ControlPanel = ({
             >
               Dobre
             </button>
+            <button
+              onClick={() => setMode('fisico')}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg ${mode === 'fisico' ? 'bg-white shadow text-blue-800' : 'text-slate-500'}`}
+            >
+              Físico
+            </button>
           </div>
+          {mode === 'fisico' && (
+            <p className="text-[11px] text-slate-500 mt-2">
+              Barra ríxida que xira arredor dun extremo (péndulo físico ou composto).
+            </p>
+          )}
         </section>
 
         <section className="space-y-6">
@@ -159,7 +170,7 @@ const ControlPanel = ({
 
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-bold">
-              <span>Masa azul</span>
+              <span>{mode === 'fisico' ? 'Masa da barra' : 'Masa azul'}</span>
               <span>{fmt(mass1, 1)} kg</span>
             </div>
             <input

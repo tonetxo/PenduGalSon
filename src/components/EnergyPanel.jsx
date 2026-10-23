@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
-import { periodoTeorico } from '../physics/pendulum';
+import { periodoTeorico, periodoTeoricoFisico } from '../physics/pendulum';
 import { fmt, fmtCifras } from '../utils/fmt';
 import { prepararCanvas, claveSistema } from '../utils/canvas';
 
@@ -29,6 +29,8 @@ const EnergyPanel = () => {
   const panelRef = useRef(null);
   const graficaRef = useRef(null);
   const periodoRef = useRef(null);
+  const formulaRef = useRef(null);
+  const equivalenteRef = useRef(null);
   const v = {
     cinetica: useRef(null), potencial: useRef(null), total: useRef(null),
     medido: useRef(null), teorico: useRef(null), diferenza: useRef(null), datos: useRef(null),
@@ -102,14 +104,20 @@ const EnergyPanel = () => {
         v[clave].current.textContent = `${fmtCifras(s.enerxia[clave])} J`;
       }
 
-      v.datos.current.textContent = modo === 'simple'
-        ? `L ${fmt(L1)} m · g ${fmt(g)} m/s²`
-        : `L ${fmt(L1)}+${fmt(L2)} m · g ${fmt(g)}`;
+      v.datos.current.textContent = modo === 'dobre'
+        ? `L ${fmt(L1)}+${fmt(L2)} m · g ${fmt(g)}`
+        : `L ${fmt(L1)} m · g ${fmt(g)} m/s²`;
 
-      periodoRef.current.style.display = modo === 'simple' ? '' : 'none';
-      if (modo !== 'simple') return;
+      periodoRef.current.style.display = modo === 'dobre' ? 'none' : '';
+      if (modo === 'dobre') return;
 
-      const teorico = periodoTeorico(L1, g);
+      const fisico = modo === 'fisico';
+      formulaRef.current.textContent = fisico ? '2π√(I/mgd)' : '2π√(L/g)';
+      // A barra oscila coma un simple de lonxitude 2L/3: dato útil para comparar
+      equivalenteRef.current.style.display = fisico ? '' : 'none';
+      equivalenteRef.current.textContent = `I = mL²/3 · d = L/2 · simple equiv. ${fmt((2 * L1) / 3)} m`;
+
+      const teorico = fisico ? periodoTeoricoFisico(L1, s.params.m1, g) : periodoTeorico(L1, g);
       const medido = s.medidor?.periodo ?? null;
       v.teorico.current.textContent = teorico ? `${fmt(teorico, 3)} s` : '–';
       v.medido.current.textContent = medido ? `${fmt(medido, 3)} s` : '…';
@@ -141,8 +149,9 @@ const EnergyPanel = () => {
       <div ref={periodoRef} className="pt-2 border-t border-slate-200 space-y-0.5">
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Período</div>
         <div className="flex justify-between"><span>Medido</span><span ref={v.medido} className="font-mono tabular-nums">…</span></div>
-        <div className="flex justify-between"><span>2π√(L/g)</span><span ref={v.teorico} className="font-mono tabular-nums">–</span></div>
+        <div className="flex justify-between"><span ref={formulaRef}>2π√(L/g)</span><span ref={v.teorico} className="font-mono tabular-nums">–</span></div>
         <div className="flex justify-between"><span>Diferenza</span><span ref={v.diferenza} className="font-mono tabular-nums">–</span></div>
+        <div ref={equivalenteRef} style={{ display: 'none' }} className="text-[9px] text-slate-400 pt-0.5" />
       </div>
     </div>
   );

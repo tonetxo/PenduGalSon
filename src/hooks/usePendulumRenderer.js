@@ -5,6 +5,9 @@ import { fmt } from '../utils/fmt';
 // Radio da bóla en px segundo a masa en kg (o volume crece coa masa)
 const radioBola = (masa) => 8 + 6 * Math.cbrt(masa);
 
+// Grosor da barra do péndulo físico en px segundo a súa masa en kg
+const grosorBarra = (masa) => 6 + 4 * Math.cbrt(masa);
+
 export const usePendulumRenderer = (canvasRef, view) => {
   const drawRingAnchor = useCallback((ctx, p, r, scale, active) => {
     const rad = r / scale;
@@ -88,6 +91,50 @@ export const usePendulumRenderer = (canvasRef, view) => {
       ctx.lineWidth = 2 / scale;
       ctx.stroke();
     }
+  }, []);
+
+  // Barra ríxida do péndulo físico, coa marca do centro de masas (CM) no medio
+  const drawRod = useCallback((ctx, from, to, mass, scale, active) => {
+    const ancho = grosorBarra(mass);
+    const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+    grad.addColorStop(0, '#1e40af');
+    grad.addColorStop(1, '#3b82f6');
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = ancho;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+
+    // Brillo para que pareza metálica
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = ancho * 0.25;
+    ctx.stroke();
+
+    const cm = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5 / scale;
+    ctx.beginPath();
+    ctx.arc(cm.x, cm.y, 4 / scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#0f172a';
+    ctx.font = `bold ${10 / scale}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText('CM', cm.x + 8 / scale, cm.y + 3 / scale);
+
+    // Asa no extremo para arrastrar
+    if (active) {
+      ctx.beginPath();
+      ctx.arc(to.x, to.y, ancho / 2 + 5 / scale, 0, Math.PI * 2);
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2 / scale;
+      ctx.stroke();
+    }
+    ctx.restore();
   }, []);
 
   const drawGrid = useCallback((ctx, width, height, scale, offsetX, offsetY) => {
@@ -246,13 +293,17 @@ export const usePendulumRenderer = (canvasRef, view) => {
       stringGrad.addColorStop(1, '#94a3b8');
       ctx.strokeStyle = stringGrad;
 
-      ctx.beginPath();
-      ctx.moveTo(state.pivot.x, state.pivot.y);
-      ctx.lineTo(state.pendulum1.x, state.pendulum1.y);
-      if (mode === 'dobre' && state.pendulum2.length > 0) {
-        ctx.lineTo(state.pendulum2.x, state.pendulum2.y);
+      if (mode === 'fisico') {
+        drawRod(ctx, state.pivot, state.pendulum1, state.mass1, scale, state.dragTarget === 'p1');
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(state.pivot.x, state.pivot.y);
+        ctx.lineTo(state.pendulum1.x, state.pendulum1.y);
+        if (mode === 'dobre' && state.pendulum2.length > 0) {
+          ctx.lineTo(state.pendulum2.x, state.pendulum2.y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
 
       // PIVOTE ARO (Ring Anchor)
       const isPivotActive = state.dragTarget === 'pivot';
@@ -260,7 +311,9 @@ export const usePendulumRenderer = (canvasRef, view) => {
 
       // MASAS 3D (Metallic Spheres)
       const isP1Active = state.dragTarget === 'p1';
-      drawMetallicBall(ctx, state.pendulum1, radioBola(state.mass1), 'blue', scale, isP1Active);
+      if (mode !== 'fisico') {
+        drawMetallicBall(ctx, state.pendulum1, radioBola(state.mass1), 'blue', scale, isP1Active);
+      }
 
       if (mode === 'dobre' && state.pendulum2.length > 0) {
         const isP2Active = state.dragTarget === 'p2';
@@ -283,7 +336,7 @@ export const usePendulumRenderer = (canvasRef, view) => {
       }
     }
     ctx.restore();
-  }, [canvasRef, view, drawRingAnchor, drawMetallicBall, drawGrid, drawAngleIndicator, drawLengthIndicator]);
+  }, [canvasRef, view, drawRingAnchor, drawMetallicBall, drawRod, drawGrid, drawAngleIndicator, drawLengthIndicator]);
 
   return { render };
 };

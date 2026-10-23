@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paso, enerxia, avanzar, derivadasSimple, derivadasDobre,
-  periodoTeorico, novoMedidor, rexistrarPaso, SUBPASO,
+  periodoTeorico, periodoTeoricoFisico, novoMedidor, rexistrarPaso, SUBPASO,
 } from './pendulum.js';
 
 const DT = 0.001;
@@ -249,5 +249,46 @@ describe('sensibilidade ás condicións iniciais (botón Comparar)', () => {
     a = avanzar(a, dobre, 20).estado;
     b = avanzar(b, dobre, 20).estado;
     expect(Math.abs(a.θ2 - b.θ2)).toBeLessThan(0.01);
+  });
+});
+
+describe('péndulo físico (barra ríxida)', () => {
+  const fisico = { modo: 'fisico', L1: 1, L2: 0, m1: 2, m2: 0, g: G, b: 0 };
+
+  it('conserva a enerxía en 60 s', () => {
+    const inicial = { θ1: grados(120), ω1: 0, θ2: 0, ω2: 0 };
+    const E0 = enerxia(inicial, fisico).total;
+    const final = simular(inicial, fisico, 60);
+    expect(Math.abs(enerxia(final, fisico).total - E0) / E0).toBeLessThan(1e-4);
+  });
+
+  it('a enerxía cinética é ½·I·ω² con I = mL²/3', () => {
+    const e = enerxia({ θ1: 0, ω1: 3, θ2: 0, ω2: 0 }, fisico);
+    expect(e.cinetica).toBeCloseTo(0.5 * (2 * 1 / 3) * 9, 12);
+    expect(e.potencial).toBe(0);
+  });
+
+  it('o período teórico é 2π√(I/(m·g·d)) = 2π√(2L/3g)', () => {
+    expect(periodoTeoricoFisico(1, 2, G)).toBeCloseTo(2 * Math.PI * Math.sqrt(2 / (3 * G)), 12);
+    expect(periodoTeoricoFisico(1, 2, 0)).toBeNull();
+  });
+
+  it('con 5° o período medido coincide co teórico (erro < 0,5 %)', () => {
+    const T = medirPeriodo(grados(5), fisico);
+    const T0 = periodoTeoricoFisico(1, 2, G);
+    expect(Math.abs(T - T0) / T0).toBeLessThan(0.005);
+  });
+
+  it('móvese igual ca un péndulo simple de lonxitude 2L/3', () => {
+    const inicial = { θ1: grados(70), ω1: 0, θ2: 0, ω2: 0 };
+    const a = simular(inicial, fisico, 10);
+    const b = simular(inicial, { ...simple, L1: 2 / 3 }, 10);
+    expect(a.θ1).toBeCloseTo(b.θ1, 9);
+  });
+
+  it('o período non depende da masa', () => {
+    const T1 = medirPeriodo(grados(30), { ...fisico, m1: 0.1 });
+    const T2 = medirPeriodo(grados(30), { ...fisico, m1: 10 });
+    expect(T1).toBeCloseTo(T2, 6);
   });
 });

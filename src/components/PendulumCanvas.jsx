@@ -15,8 +15,8 @@ const MAX_DT_FOTOGRAMA = 0.05;
 
 // Parámetros físicos (SI) a partir do estado do canvas (píxeles)
 const paramsDe = (s) => ({
-  // Sen segundo brazo (por exemplo, a medio crear) compórtase coma un simple
-  modo: s.mode === 'dobre' && s.pendulum2.length > 0 ? 'dobre' : 'simple',
+  // Sen segundo brazo (por exemplo, a medio crear) o dobre compórtase coma un simple
+  modo: s.mode === 'fisico' ? 'fisico' : s.mode === 'dobre' && s.pendulum2.length > 0 ? 'dobre' : 'simple',
   L1: s.pendulum1.length / PX_POR_METRO,
   L2: s.pendulum2.length / PX_POR_METRO,
   m1: s.mass1,
@@ -330,7 +330,7 @@ const PendulumCanvas = ({
     if (!s.isDragging) return;
 
     if (s.dragTarget === 'p1') {
-      if (mode === 'simple') {
+      if (mode !== 'dobre') {
         if (s.dragStep === 1) {
           // Iniciar simulación automaticamente ao completar a creación
           setIsSimulating(true);

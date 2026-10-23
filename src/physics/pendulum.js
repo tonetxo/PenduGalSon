@@ -5,7 +5,8 @@
 //   estado:     { θ1, ω1, θ2, ω2 }       rad, rad/s
 //   parámetros: { L1, L2, m1, m2, g, b, modo }
 //               L en m, m en kg, g en m/s², b en s⁻¹ (amortecemento viscoso)
-//               modo: 'simple' | 'dobre' (por defecto 'dobre')
+//               modo: 'simple' | 'dobre' | 'fisico' (por defecto 'dobre')
+//               No 'fisico', L1 e m1 son a lonxitude e a masa da barra.
 //
 // Os ángulos mídense desde a vertical cara abaixo, en sentido antihorario positivo.
 
@@ -53,8 +54,29 @@ export function derivadasDobre(estado, params) {
   };
 }
 
+// Péndulo físico: barra ríxida uniforme que xira arredor dun extremo.
+// I = m·L²/3 e o centro de masas está a d = L/2.
+export function barra(L, m) {
+  return { I: (m * L * L) / 3, d: L / 2 };
+}
+
+// I·θ̈ = -m·g·d·sin θ  →  θ̈ = -(3g / 2L)·sin θ - b·ω (non depende da masa)
+export function derivadasFisico(estado, params) {
+  const { θ1, ω1 } = estado;
+  const { L1, m1, g, b = 0 } = params;
+  const { I, d } = barra(L1, m1);
+  return {
+    θ1: ω1,
+    ω1: -((m1 * g * d) / I) * Math.sin(θ1) - b * ω1,
+    θ2: 0,
+    ω2: 0,
+  };
+}
+
+const DERIVADAS = { simple: derivadasSimple, dobre: derivadasDobre, fisico: derivadasFisico };
+
 function derivadasPara(params) {
-  return params.modo === 'simple' ? derivadasSimple : derivadasDobre;
+  return DERIVADAS[params.modo] ?? derivadasDobre;
 }
 
 function sumar(estado, d, h) {
@@ -87,6 +109,13 @@ export function paso(estado, params, dt) {
 export function enerxia(estado, params) {
   const { θ1, ω1, θ2, ω2 } = estado;
   const { L1, L2, m1, m2, g } = params;
+
+  if (params.modo === 'fisico') {
+    const { I, d } = barra(L1, m1);
+    const cinetica = 0.5 * I * ω1 * ω1;
+    const potencial = m1 * g * d * (1 - Math.cos(θ1));
+    return { cinetica, potencial, total: cinetica + potencial };
+  }
 
   if (params.modo === 'simple') {
     const cinetica = 0.5 * m1 * L1 * L1 * ω1 * ω1;
@@ -130,6 +159,12 @@ export function avanzar(estado, params, dt, acumulado = 0, subpaso = SUBPASO, al
 // Período teórico para oscilacións pequenas: T = 2π√(L/g). null se g ≤ 0.
 export function periodoTeorico(L, g) {
   return g > 0 ? 2 * Math.PI * Math.sqrt(L / g) : null;
+}
+
+// Péndulo físico: T = 2π√(I / (m·g·d)). Para a barra queda 2π√(2L / 3g).
+export function periodoTeoricoFisico(L, m, g) {
+  const { I, d } = barra(L, m);
+  return g > 0 ? 2 * Math.PI * Math.sqrt(I / (m * g * d)) : null;
 }
 
 // Medidor do período a partir dos pasos do ángulo polo centro (θ = 0).
