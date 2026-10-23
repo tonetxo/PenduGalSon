@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   paso, enerxia, avanzar, derivadasSimple, derivadasDobre,
-  periodoTeorico, novoMedidor, rexistrarPaso,
+  periodoTeorico, novoMedidor, rexistrarPaso, SUBPASO,
 } from './pendulum.js';
 
 const DT = 0.001;
@@ -141,6 +141,14 @@ describe('avanzar con subpasos fixos', () => {
     const a120 = porFotogramas(120, 2);
     expect(a120.θ1).toBeCloseTo(a60.θ1, 6);
     expect(a120.θ2).toBeCloseTo(a60.θ2, 6);
+  });
+
+  it('chama a alSubpaso unha vez por cada subpaso', () => {
+    const vistos = [];
+    const s0 = { θ1: 1, ω1: 0, θ2: 0, ω2: 0 };
+    const { estado } = avanzar(s0, simple, 0.0105, 0, SUBPASO, (s) => vistos.push(s));
+    expect(vistos).toHaveLength(10);
+    expect(vistos.at(-1)).toBe(estado);
   });
 
   it('o dobre segue estable durante 5 minutos sen límites', () => {

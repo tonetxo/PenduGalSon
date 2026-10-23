@@ -28,6 +28,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     enerxia: null,
     medidor: null,
     comparar: null, // péndulo de comparación (sensibilidade ao caos)
+    rexistro: null, // datos gravados para exportar en CSV
     snapAngle1: null,
     snapLength1: null,
     snapAngle2: null,
@@ -61,6 +62,7 @@ export const PhysicsProvider = ({ children, initialState, isSimulating }) => {
     s.enerxia = null;
     s.medidor = null;
     s.comparar = null;
+    s.rexistro = null;
   }, []);
 
   const updateGravity = useCallback((g) => { engineRef.current.gravity = g; }, []);

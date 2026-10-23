@@ -4,8 +4,11 @@ import { useAudio } from '../audio/useAudio';
 import { usePendulumRenderer } from '../hooks/usePendulumRenderer';
 import EnergyPanel from './EnergyPanel';
 import PhasePanel from './PhasePanel';
-import { avanzar, enerxia, novoMedidor, rexistrarPaso, reducirAngulo, PX_POR_METRO } from '../physics/pendulum';
+import { avanzar, enerxia, novoMedidor, rexistrarPaso, reducirAngulo, PX_POR_METRO, SUBPASO } from '../physics/pendulum';
+import { novoRexistro, engadirMostra, aCSV, nomeFicheiro, SUBPASOS_POR_MOSTRA } from '../physics/rexistro';
 import { fmt } from '../utils/fmt';
+import { claveSistema } from '../utils/canvas';
+import { compartirFicheiro } from '../utils/exportar';
 
 // Tope de tempo por fotograma, para non dar un salto ao volver dunha pestana en segundo plano
 const MAX_DT_FOTOGRAMA = 0.05;
@@ -360,6 +363,17 @@ const PendulumCanvas = ({
     }
   }, [engineRef]);
 
+  const exportarCSV = useCallback(async () => {
+    const s = engineRef.current;
+    if (!s.rexistro || !s.params) return;
+    try {
+      await compartirFicheiro(nomeFicheiro(s.params), aCSV(s.rexistro));
+    } catch (e) {
+      // Pechar a folla de compartir sen escoller nada tamén chega aquí
+      console.warn('Exportación cancelada ou fallida', e);
+    }
+  }, [engineRef]);
+
   const loop = useCallback(() => {
     const s = engineRef.current;
     const agora = performance.now();
@@ -377,6 +391,13 @@ const PendulumCanvas = ({
         s.medidor = { ...novoMedidor(), clave: claveMedida };
       }
 
+      // Gravación para o CSV: unha por experimento, empeza de novo se cambia o sistema
+      const claveRexistro = claveSistema(params);
+      if (!s.rexistro || s.rexistro.clave !== claveRexistro || isDraggingAny) {
+        s.rexistro = { ...novoRexistro(), clave: claveRexistro, subpasos: 0 };
+        engadirMostra(s.rexistro, 0, estadoDe(s), enerxia(estadoDe(s), params));
+      }
+
       // A comparación só ten sentido mentres non se toca o péndulo
       if (s.comparar && (params.modo !== 'dobre' || isDraggingAny)) s.comparar = null;
 
@@ -386,7 +407,14 @@ const PendulumCanvas = ({
           // Mesmo acumulador có principal: os dous dan exactamente os mesmos subpasos
           s.comparar.estado = avanzar(s.comparar.estado, params, dtReal, accumulatorRef.current).estado;
         }
-        const res = avanzar(estado, params, dtReal, accumulatorRef.current);
+        const rexistro = s.rexistro;
+        const mostrear = (e) => {
+          rexistro.subpasos++;
+          if (rexistro.subpasos % SUBPASOS_POR_MOSTRA === 0) {
+            engadirMostra(rexistro, rexistro.subpasos * SUBPASO, e, enerxia(e, params));
+          }
+        };
+        const res = avanzar(estado, params, dtReal, accumulatorRef.current, SUBPASO, mostrear);
         // Tempo simulado exacto: o consumido polos subpasos neste fotograma
         const tAnterior = s.tempo;
         s.tempo += dtReal + accumulatorRef.current - res.acumulado;
@@ -530,10 +558,24 @@ const PendulumCanvas = ({
           </svg>
         </button>
 
+        {ui.haiPendulo && (
+          <button
+            onClick={exportarCSV}
+            className="absolute top-20 right-4 p-3 rounded-full shadow-md border active:scale-95 transition-all z-30 bg-white/90 backdrop-blur border-slate-200 text-slate-500 hover:text-slate-700"
+            title="Exportar CSV (t, θ, ω, enerxías)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+        )}
+
         {mode === 'dobre' && ui.haiPendulo && (
           <button
             onClick={alternarComparar}
-            className={`absolute top-20 right-4 px-4 py-2 rounded-full shadow-md border active:scale-95 transition-all z-30 text-sm font-bold ${ui.comparando ? 'bg-amber-500 text-white border-amber-600' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-600'}`}
+            className={`absolute top-36 right-4 px-4 py-2 rounded-full shadow-md border active:scale-95 transition-all z-30 text-sm font-bold ${ui.comparando ? 'bg-amber-500 text-white border-amber-600' : 'bg-white/90 backdrop-blur border-slate-200 text-slate-600'}`}
             title="Engade un segundo péndulo con θ₂ + 0,001 rad"
           >
             {ui.comparando ? <span ref={deltaRef} className="font-mono tabular-nums">Δθ₂ 0,057°</span> : 'Comparar'}
