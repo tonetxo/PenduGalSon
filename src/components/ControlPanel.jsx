@@ -60,7 +60,7 @@ const ControlPanel = ({
   showControls,
   setShowControls
 }) => {
-  const [panelPercentage, setPanelPercentage] = useState(0); // 0 = fully open, 100 = fully closed
+  const [panelPercentage, setPanelPercentage] = useState(showControls ? 0 : 100); // 0 = fully open, 100 = fully closed
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef(0);
   const startPercentage = useRef(0);

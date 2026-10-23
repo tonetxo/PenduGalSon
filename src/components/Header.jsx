@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePhysics } from '../hooks/usePhysics';
 
 const Header = ({
@@ -18,6 +18,15 @@ const Header = ({
     setShowInstructions
 }) => {
     const { resetSimulation } = usePhysics();
+
+    // O botón de axustes pulsa ata que se preme por primeira vez
+    const [menuVisto, setMenuVisto] = useState(() => {
+        try { return localStorage.getItem('menuVisto') === '1'; } catch { return false; }
+    });
+    const marcarMenuVisto = () => {
+        setMenuVisto(true);
+        try { localStorage.setItem('menuVisto', '1'); } catch { /* sen almacenamento: pulsa en cada apertura */ }
+    };
 
     const handleReset = () => {
         resetSimulation();
@@ -92,10 +101,11 @@ const Header = ({
                 </button>
 
                 <button
-                    onClick={() => setShowControls(!showControls)}
-                    className="p-2 text-slate-500 hover:bg-slate-100 rounded-full md:hidden transition-colors bg-slate-50"
+                    onClick={() => { marcarMenuVisto(); setShowControls(!showControls); }}
+                    className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full md:hidden transition-colors bg-slate-50"
                     title="Axustes"
                 >
+                    {!menuVisto && <span className="absolute inset-0 rounded-full bg-blue-400/60 animate-ping pointer-events-none" />}
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="4" y1="7" x2="20" y2="7" />
                         <line x1="4" y1="12" x2="20" y2="12" />

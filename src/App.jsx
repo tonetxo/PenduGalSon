@@ -15,10 +15,10 @@ const App = () => {
   const [escala, setEscala] = useState('libre');
   const [disparo, setDisparo] = useState('continuo');
   const [trailLength, setTrailLength] = useState(3);
-  const [mode, setMode] = useState('simple');
+  const [mode, setMode] = useState('dobre');
   const [isSimulating, setIsSimulating] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [snapAnglesEnabled, setSnapAnglesEnabled] = useState(false);

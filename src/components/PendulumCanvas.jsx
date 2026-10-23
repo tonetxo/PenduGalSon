@@ -71,7 +71,7 @@ const PendulumCanvas = ({
   const trailLengthRef = useRef(trailLength);
   const isSimulatingRef = useRef(isSimulating);
   const lastTimeRef = useRef(null);
-  const [showData, setShowData] = useState(true);
+  const [showData, setShowData] = useState(false);
   // Estado da interface que depende do motor; o bucle sincronízao só cando cambia
   const [ui, setUi] = useState({ haiPendulo: false, comparando: false });
   const uiRef = useRef(ui);
@@ -614,6 +614,21 @@ const PendulumCanvas = ({
           </svg>
         </button>
 
+        {!ui.haiPendulo && !showInstructions && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 pointer-events-none text-slate-400">
+            <svg width="96" height="120" viewBox="0 0 96 120" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="pista-pendulo">
+              <circle cx="48" cy="10" r="4" />
+              <line x1="48" y1="10" x2="48" y2="60" />
+              <line x1="48" y1="60" x2="48" y2="105" />
+              <circle cx="48" cy="60" r="8" fill="#3b82f6" stroke="none" opacity="0.7" />
+              <circle cx="48" cy="105" r="10" fill="#9333ea" stroke="none" opacity="0.7" />
+            </svg>
+            <p className="text-sm font-medium text-center px-8">
+              Toca e arrastra para lanzar un {mode === 'dobre' ? 'péndulo dobre' : 'péndulo'}
+            </p>
+          </div>
+        )}
+
         {showInstructions && (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
             <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl my-auto">
@@ -644,13 +659,13 @@ const PendulumCanvas = ({
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <p className="font-bold text-slate-800 mb-2 text-center sm:text-left">Como usalo:</p>
                   <ul className="list-disc list-inside space-y-1 pl-1 text-sm">
-                    <li><span className="font-bold">Comezar:</span> a app abre cos axustes; preme ≡ para ocultalos e ver o lenzo (e outra vez para voltar).</li>
+                    <li><span className="font-bold">Comezar:</span> a app abre co lenzo baleiro; o botón ≡, que pulsa ata que o premes, abre os axustes.</li>
                     <li><span className="font-bold">Crear:</span> toca o lenzo (pivote) e arrastra; ao soltar nace o péndulo e arranca.</li>
                     <li><span className="font-bold">Recolocar:</span> arrastra o pivote ou as masas (pausa a simulación).</li>
                     <li><span className="font-bold">Vista:</span> un dedo no fondo move; dous dedos fan zoom.</li>
                     <li><span className="font-bold">Cabeceira:</span> ▶ pausa/retoma e ↻ reinicia. Os axustes (gravidade, masas, amortecemento, son, rastro) están baixo ≡.</li>
                     <li><span className="font-bold">Modos:</span> Simple, Dobre (caótico, deixa rastro) e Físico (vara ríxida).</li>
-                    <li><span className="font-bold">Lenzo:</span> gráfica de datos, axuste á cuadrícula e aos ángulos, exportar CSV e, no dobre, Comparar: dous péndulos case iguais para ver o caos.</li>
+                    <li><span className="font-bold">Lenzo:</span> gráfica de datos (agochada ao abrir), axuste á cuadrícula e aos ángulos, exportar CSV e, no dobre, Comparar: dous péndulos case iguais para ver o caos.</li>
                   </ul>
                 </div>
               </div>
